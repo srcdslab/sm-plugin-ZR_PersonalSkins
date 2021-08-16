@@ -1,0 +1,18 @@
+"SkinSettings"
+{
+	"STEAM_0:0:1234567890"
+	{
+		"ModelZombie"	"models/player/zh/zh_zombie003.mdl"
+		"ModelHuman"	"models/player/ct_sas.mdl"
+	}
+	"127.0.0.1"
+	{
+		"ModelZombie"	"models/player/zh/zh_corpse002.mdl"
+		"ModelHuman"	"models/player/ct_gign.mdl"
+	}
+	"Name"
+	{
+		"ModelZombie"	"models/player/zh/zh_charple001.mdl"
+		"ModelHuman"	"models/player/ct_urban.mdl"
+	}
+}
