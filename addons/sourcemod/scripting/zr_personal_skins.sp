@@ -1,12 +1,16 @@
 #include <sourcemod>
 #include <sdktools>
 #include <smlib>
+#include <multicolors>
 #include <zombiereloaded>
 
 #pragma semicolon 1
 #pragma newdecls required
 
 bool IsPlayerHasSkins[MAXPLAYERS+1];
+
+ConVar g_sZombies;
+ConVar g_sHumans;
 
 char s_PlayerModelZombie[MAXPLAYERS+1][256];
 char s_PlayerModelHuman[MAXPLAYERS+1][256];
@@ -22,8 +26,8 @@ public Plugin myinfo =
 {
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
-	author = "FrozDark, maxime1907",
-	version = "1.1",
+	author = "FrozDark, maxime1907, .Rushaway",
+	version = "1.2.1",
 	url = ""
 };
 
@@ -34,6 +38,9 @@ public void OnPluginStart()
 
 	h_FileSettingsPath = CreateConVar("zr_personalskins_skinslist", "addons/sourcemod/data/zr_personal_skins.txt", "Config path of the skin settings", FCVAR_NONE, false, 0.0, false, 0.0);
 	HookConVarChange(h_FileSettingsPath, CvarChanges);
+	
+	g_sZombies = CreateConVar("zr_personalskins_zombies_enable", "1", "Enable personal skin pickup for Zombies", _, true, 0.0, true, 1.0);
+	g_sHumans = CreateConVar("zr_personalskins_humans_enable", "1", "Enable personal skin pickup for Humans", _, true, 0.0, true, 1.0);
 
 	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_GENERIC);
 
@@ -95,11 +102,13 @@ public Action Command_Reload(int client, int args)
 	if (FileExists(s_DownListPath, false))
 	{
 		File_ReadDownloadList(s_DownListPath);
+		CReplyToCommand(client, "{green}[ZR] {default}Successfully reloaded Personal-Skin List.");
 	}
 	ClearKV(hKVSettings);
 	if (!FileToKeyValues(hKVSettings, s_FileSettingsPath))
 	{
 		SetFailState("File '%s' not found!", s_FileSettingsPath);
+		CReplyToCommand(client, "{green}[ZR] {red}File '%' not found!", s_FileSettingsPath);
 	}
 	return Plugin_Handled;
 }
@@ -118,19 +127,24 @@ public void Event_PlayerSpawn(Handle event, char[] name, bool dontBroadcast)
 }
 
 public Action SetClientModel(Handle timer, any client)
-{
-	if (IsClientInGame(client) && IsPlayerAlive(client) && ZR_IsClientHuman(client))
+{	if (GetConVarInt(g_sHumans) == 1)
 	{
-		if (s_PlayerModelHuman[client][0] && IsModelFile(s_PlayerModelHuman[client]))
+		if (IsClientInGame(client) && IsPlayerAlive(client) && ZR_IsClientHuman(client))
 		{
-			SetEntityModel(client, s_PlayerModelHuman[client]);
+			if (s_PlayerModelHuman[client][0] && IsModelFile(s_PlayerModelHuman[client]))
+			{
+				SetEntityModel(client, s_PlayerModelHuman[client]);
+			}
 		}
 	}
-	if (IsClientInGame(client) && IsPlayerAlive(client) && ZR_IsClientZombie(client))
+	if (GetConVarInt(g_sZombies) == 1)
 	{
-		if (s_PlayerModelZombie[client][0] && IsModelFile(s_PlayerModelZombie[client]))
+		if (IsClientInGame(client) && IsPlayerAlive(client) && ZR_IsClientZombie(client))
 		{
-			SetEntityModel(client, s_PlayerModelZombie[client]);
+			if (s_PlayerModelZombie[client][0] && IsModelFile(s_PlayerModelZombie[client]))
+			{
+				SetEntityModel(client, s_PlayerModelZombie[client]);
+			}
 		}
 	}
 	return Plugin_Continue;
