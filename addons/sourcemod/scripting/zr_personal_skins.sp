@@ -15,8 +15,8 @@
 //#define DEBUG
 #define Grp_Zombie 		"Personal-Skin-Zombie"
 #define Grp_Human 		"Personal-Skin-Human"
-#define Grp_Zombie_VIP 	"Personal-Skin-Zombie-VIP"
-#define Grp_Human_VIP 	"Personal-Skin-Human-VIP"
+#define Grp_Zombie_VIP 		"Personal-Skin-Zombie-VIP"
+#define Grp_Human_VIP 		"Personal-Skin-Human-VIP"
 
 bool	g_bHasPersonalSkinsZombie[MAXPLAYERS + 1] = { false, ... },
 		g_bHasPersonalSkinsHuman[MAXPLAYERS + 1] = { false, ... },
@@ -209,14 +209,14 @@ public void OnClientPostAdminFilter(int client)
 	char IP[16];
 	char name[64];
 
-	if(!GetClientIP(client, IP, sizeof(IP), true) || !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID), false) || !GetClientName(client, name, sizeof(name)))
+	if(!GetClientIP(client, IP, sizeof(IP), true) || !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID)) || !GetClientName(client, name, sizeof(name)))
 		return;
 
 	if(g_KV == null)
 		return;
 
 	g_KV.Rewind();
-	if(!g_KV.JumpToKey(SteamID) || g_KV.JumpToKey(IP) || g_KV.JumpToKey(name))
+	if(!g_KV.JumpToKey(SteamID) && g_KV.JumpToKey(IP) && g_KV.JumpToKey(name))
 		return;
 
 	g_KV.GetString("ModelZombie", g_sPlayerModelZombie[client], PLATFORM_MAX_PATH);
@@ -396,113 +396,43 @@ stock void ResetClient(int client)
 {
 	g_bHasPersonalSkinsZombie[client] = false;
 	g_bHasPersonalSkinsHuman[client] = false;
-	g_sPlayerModelZombie[client] = "\0";
-	g_sPlayerModelHuman[client] = "\0";
+	g_sPlayerModelZombie[client] = "";
+	g_sPlayerModelHuman[client] = "";
 }
 
 stock void VerifyGroups()
 {
-	if (!VerifyGroup_PersonalSkins_Zombie())
-	{
-		CreateGroup_PersonalSkins_Zombie();
-
-		if (!VerifyGroup_PersonalSkins_Zombie())
-			SetFailState("Could not create the Admin Group (\"Personal-Skin-Zombie\") for give Personal-Skins access.");
-	}
-	else
-		LogMessage("Admin group \"%s\" already exist.", Grp_Zombie);
-
-	if (!VerifyGroup_PersonalSkins_Human())
-	{
-		CreateGroup_PersonalSkins_Human();
-
-		if (!VerifyGroup_PersonalSkins_Human())
-			SetFailState("Could not create the Admin Group (\"Personal-Skin-Human\") for give Personal-Skins access.");
-	}
-	else
-		LogMessage("Admin group \"%s\" already exist.", Grp_Human);
+    VerifyAndCreateGroup(Grp_Zombie, GrpID_Zombie);
+    VerifyAndCreateGroup(Grp_Human, GrpID_Human);
 
 #if defined _vip_core_included
-	if (!VerifyGroup_PersonalSkins_Zombie_VIP())
-	{
-		CreateGroup_PersonalSkins_Zombie_VIP();
-
-		if (!VerifyGroup_PersonalSkins_Zombie_VIP())
-			SetFailState("Could not create the Admin Group (\"Personal-Skin-Zombie-VIP\") for give Personal-Skins access.");
-	}
-	else
-		LogMessage("Admin group \"%s\" already exist.", Grp_Zombie_VIP);
-
-	if (!VerifyGroup_PersonalSkins_Human_VIP())
-	{
-		CreateGroup_PersonalSkins_Human_VIP();
-
-		if (!VerifyGroup_PersonalSkins_Human_VIP())
-			SetFailState("Could not create the Admin Group (\"Personal-Skin-Human-VIP\") for give Personal-Skins access.");
-	}
-	else
-		LogMessage("Admin group \"%s\" already exist.", Grp_Human_VIP);
+    VerifyAndCreateGroup(Grp_Zombie_VIP, GrpID_Zombie_VIP);
+    VerifyAndCreateGroup(Grp_Human_VIP, GrpID_Human_VIP);
 #endif
 }
 
-stock bool VerifyGroup_PersonalSkins_Zombie()
+stock void VerifyAndCreateGroup(const char[] groupName, GroupId groupID)
 {
-	if ((GrpID_Human = FindAdmGroup(Grp_Human)) != INVALID_GROUP_ID)
-		return true;
-	else
-		return false;
+    if (!VerifyGroup(groupName, groupID))
+    {
+        CreateGroup(groupName, groupID);
+
+        if (!VerifyGroup(groupName, groupID))
+			SetFailState("Could not create the Admin Group (\"%s\") for give Personal-Skins access.", groupName);
+    }
+    else
+        LogMessage("Admin group \"%s\" already exists.", groupName);
 }
 
-stock bool VerifyGroup_PersonalSkins_Human()
+stock bool VerifyGroup(const char[] groupName, GroupId groupID)
 {
-	if ((GrpID_Human = FindAdmGroup(Grp_Human)) != INVALID_GROUP_ID)
-		return true;
-	else
-		return false;
+    groupID = FindAdmGroup(groupName);
+    return groupID != INVALID_GROUP_ID;
 }
 
-stock void CreateGroup_PersonalSkins_Zombie()
+stock void CreateGroup(const char[] groupName, GroupId groupID)
 {
-	GrpID_Zombie = CreateAdmGroup(Grp_Zombie);
-	GrpID_Zombie.ImmunityLevel = 0;
-	LogMessage("Creating new admin group \"%s\"", Grp_Zombie);
+    groupID = CreateAdmGroup(groupName);
+    groupID.ImmunityLevel = 0;
+    LogMessage("Creating new admin group \"%s\"", groupName);
 }
-
-stock void CreateGroup_PersonalSkins_Human()
-{
-	GrpID_Human = CreateAdmGroup(Grp_Human);
-	GrpID_Human.ImmunityLevel = 0;
-	LogMessage("Creating new admin group \"%s\"", Grp_Human);
-}
-
-#if defined _vip_core_included
-stock bool VerifyGroup_PersonalSkins_Zombie_VIP()
-{
-	if ((GrpID_Zombie_VIP = FindAdmGroup(Grp_Zombie_VIP)) != INVALID_GROUP_ID)
-		return true;
-	else
-		return false;
-}
-
-stock bool VerifyGroup_PersonalSkins_Human_VIP()
-{
-	if ((GrpID_Human_VIP = FindAdmGroup(Grp_Human_VIP)) != INVALID_GROUP_ID)
-		return true;
-	else
-		return false;
-}
-
-stock void CreateGroup_PersonalSkins_Zombie_VIP()
-{
-	GrpID_Zombie_VIP = CreateAdmGroup(Grp_Zombie_VIP);
-	GrpID_Zombie_VIP.ImmunityLevel = 0;
-	LogMessage("Creating new admin group \"%s\"", Grp_Zombie_VIP);
-}
-
-stock void CreateGroup_PersonalSkins_Human_VIP()
-{
-	GrpID_Human_VIP = CreateAdmGroup(Grp_Human_VIP);
-	GrpID_Human_VIP.ImmunityLevel = 0;
-	LogMessage("Creating new admin group \"%s\"", Grp_Human_VIP);
-}
-#endif
