@@ -1,113 +1,136 @@
 #include <sourcemod>
 #include <sdktools>
-#include <clientprefs>
 #include <smlib>
 #include <multicolors>
 #include <zombiereloaded>
+#include <utilshelper>
+
+#undef REQUIRE_PLUGIN
+#tryinclude <vip_core>
+#define REQUIRE_PLUGIN
 
 #pragma semicolon 1
 #pragma newdecls required
 
-#define CHANGE_MODE_NOT_CHANGED_YET 0
-#define CHANGE_MODE_CHANGED 1
-#define CHANGE_MODE_CHANGESKIN_TO_PSKIN 2
-#define CHANGE_MODE_CHANGESKIN_TO_ACTUAL 3
+//#define DEBUG
 
-int 
-		g_iClientChangeMode[MAXPLAYERS + 1] = { CHANGE_MODE_NOT_CHANGED_YET, ... },
-		g_iClientPreviousChangeMode[MAXPLAYERS + 1] = { CHANGE_MODE_NOT_CHANGED_YET, ... };
+bool	g_bHasPersonalSkinsZombie[MAXPLAYERS + 1] = { false, ... },
+		g_bHasPersonalSkinsHuman[MAXPLAYERS + 1] = { false, ... },
+		g_bVipCore = false;
 
-bool	g_bIsPlayerHasSkins[MAXPLAYERS + 1] = { false, ... },
-		g_bClientDisabledSkin[MAXPLAYERS + 1] = { false, ... },
-		g_bClientChangedSkin[MAXPLAYERS + 1] = { false, ... },
-		g_bForceDisableSkin[MAXPLAYERS + 1] = { false, ... },
-		g_bMotherInfect = false;
-
-ConVar 	g_cvZombies,
-		g_cvHumans,
-		g_cvFileSettingsPath,
-		g_cvDownListPath;
+ConVar 	g_cvZombies, g_cvHumans,
+		g_cvFileSettingsPath, g_cvDownListPath,
+		g_cvGrpZombie, g_cvGrpHuman,
+		g_cvGrpZombieVIP, g_cvGrpHumanVIP;
 
 char 	g_sPlayerModelZombie[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sPlayerModelHuman[MAXPLAYERS+1][PLATFORM_MAX_PATH],
-		g_sPlayerActualModel[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sDownListPath[PLATFORM_MAX_PATH],
- 		g_sFileSettingsPath[PLATFORM_MAX_PATH];
+ 		g_sFileSettingsPath[PLATFORM_MAX_PATH],
+		g_sGroupZombie[PLATFORM_MAX_PATH], g_sGroupHuman[PLATFORM_MAX_PATH],
+		g_sGroupZombieVIP[PLATFORM_MAX_PATH], g_sGroupHumanVIP[PLATFORM_MAX_PATH];
 
 KeyValues g_KV;
 
-Cookie 	
-		g_hUser,
-		g_hForced;
+GroupId GrpID_Human,
+		GrpID_Human_VIP,
+		GrpID_Zombie,
+		GrpID_Zombie_VIP;
 
 public Plugin myinfo =
 {
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
-	author = "FrozDark, maxime1907, .Rushaway, Dolly",
-	version = "1.3.0",
+	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
+	version = "2.0.0",
 	url = ""
+}
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	RegPluginLibrary("ZR_PersonalSkins");
+	return APLRes_Success;
 }
 
 public void OnPluginStart()
 {
-	g_cvDownListPath = CreateConVar("zr_personalskins_downloadslist", "addons/sourcemod/configs/zr_personalskins_downloadslist.txt", "Config path of the download list", FCVAR_NONE, false, 0.0, false, 0.0);
-	g_cvDownListPath.AddChangeHook(CvarChanges);
+	/* Paths Configs */
+	g_cvDownListPath = CreateConVar("zr_personalskins_downloadslist", "addons/sourcemod/configs/zr_personalskins_downloadslist.txt", "Config path of the download list", FCVAR_NONE);
+	g_cvFileSettingsPath = CreateConVar("zr_personalskins_skinslist", "addons/sourcemod/data/zr_personal_skins.txt", "Config path of the skin settings", FCVAR_NONE);
 
-	g_cvFileSettingsPath = CreateConVar("zr_personalskins_skinslist", "addons/sourcemod/data/zr_personal_skins.txt", "Config path of the skin settings", FCVAR_NONE, false, 0.0, false, 0.0);
-	g_cvFileSettingsPath.AddChangeHook(CvarChanges);
-	
+	/* Enable - Disable */
 	g_cvZombies 	= CreateConVar("zr_personalskins_zombies_enable", "1", "Enable personal skin pickup for Zombies", _, true, 0.0, true, 1.0);
 	g_cvHumans 		= CreateConVar("zr_personalskins_humans_enable", "1", "Enable personal skin pickup for Humans", _, true, 0.0, true, 1.0);
 
-	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_GENERIC);
-	RegAdminCmd("sm_togglepskin", Command_TogglePSkin, ADMFLAG_RCON);
+	/* Groups */
+	g_cvGrpZombie 	= CreateConVar("zr_personalskins_group_zombie", "Personal-Skin-Zombie", "Group name for personal skin zombie", FCVAR_PROTECTED);
+	g_cvGrpHuman 	= CreateConVar("zr_personalskins_group_human", "Personal-Skin-Human", "Group name for personal skin human", FCVAR_PROTECTED);
+	g_cvGrpZombieVIP = CreateConVar("zr_personalskins_group_zombie_vip", "Personal-Skin-Zombie-VIP", "Group name for personal skin zombie VIP", FCVAR_PROTECTED);
+	g_cvGrpHumanVIP = CreateConVar("zr_personalskins_group_human_vip", "Personal-Skin-Human-VIP", "Group name for personal skin human VIP", FCVAR_PROTECTED);
+
+	g_cvDownListPath.AddChangeHook(CvarChanges);
+	g_cvFileSettingsPath.AddChangeHook(CvarChanges);
+	g_cvGrpZombie.AddChangeHook(CvarChanges);
+	g_cvGrpHuman.AddChangeHook(CvarChanges);
+	g_cvGrpZombieVIP.AddChangeHook(CvarChanges);
+	g_cvGrpHumanVIP.AddChangeHook(CvarChanges);
+
+	/* Initialize values + Handle plugin reload */
+	GetConVarString(g_cvFileSettingsPath, g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
+	GetConVarString(g_cvDownListPath, g_sDownListPath, sizeof(g_sDownListPath));
+	GetConVarString(g_cvGrpZombie, g_sGroupZombie, sizeof(g_sGroupZombie));
+	GetConVarString(g_cvGrpHuman, g_sGroupHuman, sizeof(g_sGroupHuman));
+	GetConVarString(g_cvGrpZombieVIP, g_sGroupZombieVIP, sizeof(g_sGroupZombieVIP));
+	GetConVarString(g_cvGrpHumanVIP, g_sGroupHumanVIP, sizeof(g_sGroupHumanVIP));
+
+	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_ROOT);
 	RegConsoleCmd("sm_pskin", Command_pSkin);
 
-	HookEvent("player_spawn", Event_PlayerSpawn);
-	HookEvent("player_team", Event_PlayerSpawn);
-	HookEvent("round_start", Event_RoundStart);
-
 	AutoExecConfig(true, "zr_personal_skins", "zombiereloaded");
-	
-	g_hUser = new Cookie("zr_personalskins_user", "Disable/Enable skin", CookieAccess_Public);
-	g_hForced = new Cookie("zr_personalskins_forced", "Admin force enable/disable skin", CookieAccess_Public);
-	
-	for(int i = 1; i <= MaxClients; i++)
-	{
-		if(!IsClientInGame(i))
-			continue;
-			
-		if(AreClientCookiesCached(i))
-			OnClientCookiesCached(i);
-	}
 }
 
-public void OnClientCookiesCached(int client)
+public void OnAllPluginsLoaded()
 {
-	char cookieValue[6];
-	g_hUser.Get(client, cookieValue, sizeof(cookieValue));
-	
-	if(StrEqual(cookieValue, "true", false))
-		g_bClientDisabledSkin[client] = true;
-	else
-		g_bClientDisabledSkin[client] = false;
-		
-	g_hForced.Get(client, cookieValue, sizeof(cookieValue));
-	
-	if(StrEqual(cookieValue, "true", false))
-		g_bForceDisableSkin[client] = true;
-	else
-		g_bForceDisableSkin[client] = false;
+	g_bVipCore = LibraryExists("vip_core");
+}
+
+public void OnLibraryAdded(const char[] name)
+{
+	if (StrEqual(name, "vip_core"))
+		g_bVipCore = true;
+}
+
+public void OnLibraryRemoved(const char[] name)
+{
+	if (StrEqual(name, "vip_core"))
+		g_bVipCore = false;
 }
 
 public void OnMapEnd()
 {
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsClientConnected(i))
+			continue;
+
+		if (!g_bHasPersonalSkinsZombie[i] || !g_bHasPersonalSkinsHuman[i])
+			continue;
+
+		g_sPlayerModelZombie[i] = "";
+		g_sPlayerModelHuman[i] = "";
+	}
+
 	delete g_KV;
+
+	// Restore cvar to 1
+	g_cvZombies.IntValue = 1;
+	g_cvHumans.IntValue = 1;
 }
 
 public void OnConfigsExecuted()
 {
+	VerifyGroups();
+
 	g_cvFileSettingsPath.GetString(g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
 	g_cvDownListPath.GetString(g_sDownListPath, sizeof(g_sDownListPath));
 
@@ -135,24 +158,36 @@ public void CvarChanges(ConVar convar, const char[] oldValue, const char[] newVa
 	{
 		if(g_KV == null)
 			return;
-			
+
 		strcopy(g_sFileSettingsPath, sizeof(g_sFileSettingsPath), newValue);
 		ClearKV(g_KV);
-		
+
 		if (!g_KV.ImportFromFile(g_sFileSettingsPath))
 			SetFailState("File '%s' not found!", g_sFileSettingsPath);
-			
+
 		return;
 	}
-	
+
 	if (convar == g_cvDownListPath)
 	{
-		strcopy(g_sDownListPath, sizeof(g_sFileSettingsPath), newValue);
+		strcopy(g_sDownListPath, sizeof(g_sDownListPath), newValue);
 		if(!FileExists(g_sDownListPath, false))
 			return;
-			
+
 		File_ReadDownloadList(g_sDownListPath);
 	}
+
+	if (convar == g_cvGrpZombie)
+		strcopy(g_sGroupZombie, sizeof(g_sGroupZombie), newValue);
+
+	if (convar == g_cvGrpHuman)
+		strcopy(g_sGroupHuman, sizeof(g_sGroupHuman), newValue);
+
+	if (convar == g_cvGrpZombieVIP)
+		strcopy(g_sGroupZombieVIP, sizeof(g_sGroupZombieVIP), newValue);
+
+	if (convar == g_cvGrpHumanVIP)
+		strcopy(g_sGroupHumanVIP, sizeof(g_sGroupHumanVIP), newValue);
 }
 
 public Action Command_Reload(int client, int args)
@@ -160,321 +195,210 @@ public Action Command_Reload(int client, int args)
 	if(FileExists(g_sDownListPath, false))
 	{
 		File_ReadDownloadList(g_sDownListPath);
-		CReplyToCommand(client, "{green}[ZR] {default}Successfully reloaded Personal-Skin List.");
-		if (client > 0)
-			LogAction(client, -1, "[ZR-PersonalSkin] %L Reloaded the Personal-Skin List.", client);
-		else
-			LogAction(-1, -1, "[ZR-PersonalSkin] <Console> Reloaded the Personal-Skin List.");
-	}
 	
+		CReplyToCommand(client, "{green}[ZR] {default}Successfully reloaded Personal-Skin List.");
+		LogAction(-1, -1, "[ZR-PersonalSkin] %L Reloaded the Personal-Skin List.", client);
+	}
+
 	if(g_KV == null)
 		return Plugin_Handled;
-		
+
 	ClearKV(g_KV);
 	if(!g_KV.ImportFromFile(g_sFileSettingsPath))
 	{
 		SetFailState("File '%s' not found!", g_sFileSettingsPath);
 		CReplyToCommand(client, "{green}[ZR] {red}File '%' not found!", g_sFileSettingsPath);
 	}
-	
+
 	return Plugin_Handled;
 }
 
 public Action Command_pSkin(int client, int args)
 {
-	if(!client)
+	if (!client)
 		return Plugin_Handled;
-		
-	if(!g_bIsPlayerHasSkins[client])
-	{
-		CReplyToCommand(client, "{green}[ZR] {default}You don't have a personal skin to use this command.");
-		return Plugin_Handled;
-	}
-	
-	if(g_bForceDisableSkin[client])
-	{
-		CReplyToCommand(client, "{green}[ZR] {red}You Personal Skin is temporary disabled by an Administrator.");
-		return Plugin_Handled;
-	}
-	
-	g_bClientDisabledSkin[client] = (g_bClientDisabledSkin[client]) ? false : true;
-	CReplyToCommand(client, "{green}[ZR] {default}Successfully %s {default}Personal-Skin.", (g_bClientDisabledSkin[client]) ? "{red}disabled" : "{green}enabled");
-	CReplyToCommand(client, "{green}[ZR] {default}Type {olive}!pskin {default}again if you want to %s it.", (g_bClientDisabledSkin[client]) ? "enable" : "disable");
-	
-	char cookieValue[6];
-	FormatEx(cookieValue, sizeof(cookieValue), "%s", (g_bClientDisabledSkin[client]) ? "true" : "false");
-	g_hUser.Set(client, cookieValue);
-	
-	if(!g_bMotherInfect)
-	{
-		if(!g_bClientChangedSkin[client])
-		{
-			int newMode;
-			
-			if(g_bClientDisabledSkin[client])
-			{
-				if(ZR_IsClientHuman(client) && g_sPlayerActualModel[client][0])
-				{
-					newMode = CHANGE_MODE_CHANGESKIN_TO_ACTUAL;
-					SetEntityModel(client, g_sPlayerActualModel[client]);
-				}
-			}
-			else
-			{
-				if(ZR_IsClientHuman(client) && g_sPlayerModelHuman[client][0])
-				{
-					newMode = CHANGE_MODE_CHANGESKIN_TO_PSKIN;
-					SetEntityModel(client, g_sPlayerModelHuman[client]);
-				}
-			}
-			
-			g_iClientPreviousChangeMode[client] = CHANGE_MODE_CHANGED;
-			g_iClientChangeMode[client] = newMode;
-			g_bClientChangedSkin[client] = true;
-		}
-		else
-		{
-			int modeEx = g_iClientChangeMode[client];
-			int newMode;
-		
-			if(!g_bClientDisabledSkin[client])
-				newMode = CHANGE_MODE_CHANGESKIN_TO_PSKIN;
-			else
-				newMode = CHANGE_MODE_CHANGESKIN_TO_ACTUAL;
-		
-			g_iClientPreviousChangeMode[client] = modeEx;
-			g_iClientChangeMode[client] = newMode;
-			CReplyToCommand(client, "{green}[ZR] {default}Your changes will be applied on next round!");
-		}
-		
-		return Plugin_Handled;
-	}
-	else
-	{
-		int mode = g_iClientChangeMode[client];
-		int newMode;
-		
-		if(!g_bClientDisabledSkin[client])
-			newMode = CHANGE_MODE_CHANGESKIN_TO_PSKIN;
-		else
-			newMode = CHANGE_MODE_CHANGESKIN_TO_ACTUAL;
-		
-		g_iClientPreviousChangeMode[client] = mode;
-		g_iClientChangeMode[client] = newMode;
-		CReplyToCommand(client, "{green}[ZR] {default}Your changes will be applied on next round!");
-		return Plugin_Handled;
-	}
-}
 
-public Action Command_TogglePSkin(int client, int args)
-{
-	if(args < 2)
-	{
-		CReplyToCommand(client, "{green}[ZR] {default}Usage: sm_togglepskin <player> <1|0>");
-		return Plugin_Handled;
-	}
-	
-	char arg1[65], arg2[7];
-	GetCmdArg(1, arg1, sizeof(arg1));
-	GetCmdArg(2, arg2, sizeof(arg2));
-	
-	int target = FindTarget(client, arg1, true, false);
-	if(target < 1)
-	{
-		CReplyToCommand(client, "{green}[ZR] {default}Invalid target.");
-		return Plugin_Handled;
-	}
-	
-	if(!g_bIsPlayerHasSkins[target])
-	{
-		CReplyToCommand(client, "{green}[ZR] {default}The specified target doesn't have a personal skin!");
-		return Plugin_Handled;
-	}
-	
-	int num;
-	if(!StringToIntEx(arg2, num))
-	{
-		CReplyToCommand(client, "{green}[ZR] {default}Invalid toggle value.");
-		return Plugin_Handled;
-	}
-	
-	bool bValue;
-	if(num <= 0)
-		bValue = true;
+	if (!g_bHasPersonalSkinsZombie[client] && !g_bHasPersonalSkinsHuman[client])
+		CReplyToCommand(client, "{green}[ZR] {default}You don't have personal-skin");
 	else
-		bValue = false;
-		
-	if(g_bForceDisableSkin[target] == bValue)
-	{
-		CReplyToCommand(client, "{green}[ZR] {default}The specified target's personal skin is already %s.", (bValue) ? "{red}disabled" : "{green}enabled");
-		return Plugin_Handled;
-	}
-	
-	g_bForceDisableSkin[target] = bValue;
-	g_hForced.Set(client, "true");
-	CReplyToCommand(client, "{green}[ZR] {red}Successfully %s {default}Personal Skin on {olive}%N.", (bValue) ? "{red}disabled" : "{green}enabled", target);
-	LogAction(client, target, "[ZR-PersonalSkin] \"%L\" Force-%s \"%L\"'s personal skin", client, (bValue) ? "Disabled" : "Enabled", target);
+		FakeClientCommand(client, "zclass"); // Print zclass menu to client, let him choose
+
 	return Plugin_Handled;
 }
 
-public void ZR_OnClientInfected(int client, int attacker, bool motherInfect)
-{
-	if(motherInfect)
-		g_bMotherInfect = true;
-}
-
-public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
-{
-	g_bMotherInfect = false;
-	
-	for(int i = 1; i <= MaxClients; i++)
-	{
-		if(!IsClientInGame(i))
-			continue;
-			
-		if(!g_bIsPlayerHasSkins[i])
-			continue;
-			
-		g_iClientPreviousChangeMode[i] = CHANGE_MODE_CHANGED;
-		g_bClientChangedSkin[i] = false;
-	}
-}
-
-public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
-{
-	int userid = event.GetInt("userid");
-	int client = GetClientOfUserId(userid);
-
-	if (client < 1 || client > MaxClients || IsFakeClient(client) || !g_bIsPlayerHasSkins[client])
-		return;
-
-	if(g_bForceDisableSkin[client])
-		return;
-		
-	CreateTimer(0.5, PlayerSpawn_Timer, userid);
-}
-
-public Action PlayerSpawn_Timer(Handle timer, int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if(client < 1)
-		return Plugin_Stop;
-
-	RequestFrame(GetClientModel_Frame, client);
-	
-	int previousMode = g_iClientPreviousChangeMode[client];
-	int currentMode = g_iClientChangeMode[client];
-	
-	if(previousMode == CHANGE_MODE_CHANGED && currentMode == CHANGE_MODE_CHANGESKIN_TO_PSKIN || (previousMode == CHANGE_MODE_NOT_CHANGED_YET && currentMode == CHANGE_MODE_NOT_CHANGED_YET) && !g_bClientDisabledSkin[client])
-		CreateTimer(1.0, SetClientModelTimer, userid);
-
-	else if(previousMode == CHANGE_MODE_CHANGED && currentMode == CHANGE_MODE_CHANGESKIN_TO_ACTUAL && g_bClientDisabledSkin[client])
-		return Plugin_Stop;
-	
-	else
-		return Plugin_Stop;
-		
-	if(g_bClientDisabledSkin[client])
-		return Plugin_Stop;
-		
-	return Plugin_Continue;
-}
-
-void GetClientModel_Frame(int client)
-{
-	GetEntPropString(client, Prop_Data, "m_ModelName", g_sPlayerActualModel[client], PLATFORM_MAX_PATH);
-}
-public Action SetClientModelTimer(Handle timer, int userid)
-{
-	int client = GetClientOfUserId(userid);
-	if(client < 1 || client > MaxClients || !IsClientInGame(client) || !IsPlayerAlive(client) || !g_bIsPlayerHasSkins[client])
-		return Plugin_Stop;
-	
-	if(g_cvHumans.BoolValue && ZR_IsClientHuman(client))
-	{	
-		if(g_sPlayerModelHuman[client][0] && IsModelFile(g_sPlayerModelHuman[client]))
-		{
-			SetEntityModel(client, g_sPlayerModelHuman[client]);
-			return Plugin_Continue;
-		}
-	}
-	
-	if(g_cvZombies.BoolValue && ZR_IsClientZombie(client))
-	{
-		if(g_sPlayerModelZombie[client][0] && IsModelFile(g_sPlayerModelZombie[client]))
-		{
-			SetEntityModel(client, g_sPlayerModelZombie[client]);
-			return Plugin_Continue;
-		}
-	}
-
-	return Plugin_Continue;
-}
-
-public void OnClientPutInServer(int client)
+// We use this instead of PostAdminCheck, bcs ZombieReloaded check class on post.
+// Need to give the groups used as filter in playerclass before ZR check if user can access to it.
+public void OnClientPostAdminFilter(int client)
 {
 	if (!client || IsClientSourceTV(client) || IsFakeClient(client))
 		return;
 
-	g_bIsPlayerHasSkins[client] = false;
+	ResetClient(client);
 
 	char SteamID[24];
 	char IP[16];
 	char name[64];
 
-	if(!GetClientIP(client, IP, sizeof(IP), true)
-	|| !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID))
-	|| !GetClientName(client, name, sizeof(name)))
-	{
+	if(!GetClientIP(client, IP, sizeof(IP), true) || !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID)) || !GetClientName(client, name, sizeof(name)))
 		return;
-	}
-	
+
 	if(g_KV == null)
 		return;
-		
+
 	g_KV.Rewind();
-	if(!g_KV.JumpToKey(SteamID) || g_KV.JumpToKey(IP) || g_KV.JumpToKey(name))
+	if(!g_KV.JumpToKey(SteamID) && g_KV.JumpToKey(IP) && g_KV.JumpToKey(name))
 		return;
-		
-	g_bIsPlayerHasSkins[client] = true;
+
 	g_KV.GetString("ModelZombie", g_sPlayerModelZombie[client], PLATFORM_MAX_PATH);
 	g_KV.GetString("ModelHuman", g_sPlayerModelHuman[client], PLATFORM_MAX_PATH);
-	
-	if(g_sPlayerModelZombie[client][0] && IsModelFile(g_sPlayerModelZombie[client]) && !IsModelPrecached(g_sPlayerModelZombie[client]))
-		PrecacheModel(g_sPlayerModelZombie[client], false);
 
-	if (g_sPlayerModelHuman[client][0] && IsModelFile(g_sPlayerModelHuman[client]) && !IsModelPrecached(g_sPlayerModelHuman[client]))
-		PrecacheModel(g_sPlayerModelHuman[client], false);
+	if(strlen(g_sPlayerModelZombie[client][0]) != 0)
+	{
+		if (!IsModelFile(g_sPlayerModelZombie[client]))
+		{
+			LogError("%L Personal Skins (Zombie) is not a model file. (.mdl)", client);
+			return;
+		}
+
+		if (!IsModelPrecached(g_sPlayerModelZombie[client]))
+			PrecacheModel(g_sPlayerModelZombie[client], false);
+
+		g_bHasPersonalSkinsZombie[client] = true;
+	}
+
+	if (strlen(g_sPlayerModelHuman[client][0]) != 0)
+	{
+		if (!IsModelFile(g_sPlayerModelHuman[client]))
+		{
+			LogError("%L Personal Skins (Human) is not a model file. (.mdl)", client);
+			return;
+		}
+
+		if(!IsModelPrecached(g_sPlayerModelHuman[client]))
+			PrecacheModel(g_sPlayerModelHuman[client], false);
+	
+		g_bHasPersonalSkinsHuman[client] = true;
+	}
+
+	AdminId AdmID;
+
+	if ((AdmID = GetUserAdmin(client)) == INVALID_ADMIN_ID)
+	{
+		AdmID = CreateAdmin();
+		SetUserAdmin(client, AdmID, true);
+		LogMessage("Creating new admin for %L", client);
+	}
+
+	if (g_bHasPersonalSkinsZombie[client] && AdminInheritGroup(AdmID, GrpID_Zombie))
+		LogMessage("%L added to group \"%s\"", client, g_sGroupZombie);
+
+	if (g_bHasPersonalSkinsHuman[client] && AdminInheritGroup(AdmID, GrpID_Human))
+		LogMessage("%L added to group \"%s\"", client, g_sGroupHuman);
+
+#if defined _vip_core_included
+	if (g_bVipCore && VIP_IsClientVIP(client))
+	{
+		if(g_bHasPersonalSkinsZombie[client] && AdminInheritGroup(AdmID, GrpID_Zombie_VIP))
+			LogMessage("%L added to group \"%s\"", client, g_sGroupZombieVIP);
+
+		if(g_bHasPersonalSkinsHuman[client] && AdminInheritGroup(AdmID, GrpID_Human_VIP))
+			LogMessage("%L added to group \"%s\"", client, g_sGroupHumanVIP);
+	}
+#endif
+}
+
+public void ZR_OnClassAttributesApplied(int &client, int &classindex)
+{
+	#if defined DEBUG
+	LogMessage("ZR_OnClassAttributesApplied: %d | %d", client, classindex);
+	#endif
+
+	if(IsValidClient(client) && IsPlayerAlive(client) && (g_bHasPersonalSkinsZombie[client] || g_bHasPersonalSkinsHuman[client]))
+	{
+		int iActiveClass = ZR_GetActiveClass(client);
+		int iPersonalHumanClass = ZR_GetClassByIdentifier(g_sGroupHuman);
+		int iPersonalZombieClass = ZR_GetClassByIdentifier(g_sGroupZombie);
+		int iPersonalHumanClassVIP = ZR_GetClassByIdentifier(g_sGroupHumanVIP);
+		int iPersonalZombieClassVIP = ZR_GetClassByIdentifier(g_sGroupZombieVIP);
+
+		#if defined DEBUG
+		LogMessage("%N has active class %d", client, iActiveClass);
+		LogMessage("Personal human: %d", iPersonalHumanClass);
+		LogMessage("Personal zombie: %d", iPersonalZombieClass);
+		LogMessage("Personal human VIP: %d", iPersonalHumanClassVIP);
+		LogMessage("Personal zombie VIP: %d", iPersonalZombieClassVIP);
+		#endif
+
+		// If user is not using a Personal-Skin, stop here.
+		if (ZR_IsValidClassIndex(iActiveClass) && (!(iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalHumanClassVIP || iActiveClass == iPersonalZombieClassVIP)))
+			return;
+
+		char modelpath[PLATFORM_MAX_PATH];
+		if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP)
+			Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
+		else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP)
+			Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
+
+		// Player has a Personal-Skin but no model related to the current team or model_path wasn't set.
+		if (strlen(modelpath) == 0)
+			return;
+
+		#if defined DEBUG
+		LogMessage("%L new model path stored: %s", client, modelpath);
+		#endif
+	
+		if (!IsModelFile(modelpath))
+		{
+			PrintToChat(client, "[SM] A configuration error was caught on your model, can't apply it.");
+			LogError("Model extension is not an .mdl (%s)", modelpath);
+			return;
+		}
+
+		// Should never happen, but to be safe attempt hotfix on the fly
+		if (!IsModelPrecached(modelpath))
+		{
+			PrecacheModel(modelpath);
+			#if defined DEBUG
+			LogMessage("Model not precached, attempting an hotfix by Precaching the model on the fly.. (%s)", modelpath);
+			#endif
+
+			if (!IsModelPrecached(modelpath))
+			{
+				PrintToChat(client, "[SM] A technical error was caught on your model, can't apply it.");
+				LogError("Model not precached, not applying model.. \"%s\"", modelpath);
+				return;
+			}
+
+			#if defined DEBUG
+			LogMessage("Hotfix: Model has been preached.. Yay! (%s)", modelpath);
+			#endif
+		}
+		else
+			SetEntityModel(client, modelpath);
+	}
 }
 
 public void OnClientDisconnect(int client)
 {
-	g_bClientDisabledSkin[client] = false;
-	g_bIsPlayerHasSkins[client] = false;
-	g_sPlayerActualModel[client][0] = '\0';
-	
-	g_iClientPreviousChangeMode[client] = CHANGE_MODE_NOT_CHANGED_YET;
-	g_iClientChangeMode[client] = CHANGE_MODE_NOT_CHANGED_YET;
-	g_bClientChangedSkin[client] = false;
-	g_bForceDisableSkin[client] = false;
+	ResetClient(client);
 }
 
 stock void ClearKV(KeyValues kvHandle)
 {
 	if(kvHandle == null)
 		return;
-		
+
 	kvHandle.Rewind();
-	
+
 	if(!kvHandle.GotoFirstSubKey())
 		return;
-		
+
 	do 
 	{
 		kvHandle.DeleteThis();
 		kvHandle.Rewind();
 	}
-	
+
 	while(kvHandle.GotoNextKey());
 	kvHandle.Rewind();
 }
@@ -496,4 +420,49 @@ stock void GetExtension(char[] path, char[] buffer, int size)
 	}
 	extpos++;
 	strcopy(buffer, size, path[extpos]);
+}
+
+stock void ResetClient(int client)
+{
+	g_bHasPersonalSkinsZombie[client] = false;
+	g_bHasPersonalSkinsHuman[client] = false;
+	g_sPlayerModelZombie[client] = "";
+	g_sPlayerModelHuman[client] = "";
+}
+
+stock void VerifyGroups()
+{
+    VerifyAndCreateGroup(g_sGroupZombie, GrpID_Zombie);
+    VerifyAndCreateGroup(g_sGroupHuman, GrpID_Human);
+
+#if defined _vip_core_included
+    VerifyAndCreateGroup(g_sGroupZombieVIP, GrpID_Zombie_VIP);
+    VerifyAndCreateGroup(g_sGroupHumanVIP, GrpID_Human_VIP);
+#endif
+}
+
+stock void VerifyAndCreateGroup(const char[] groupName, GroupId groupID)
+{
+    if (!VerifyGroup(groupName, groupID))
+    {
+        CreateGroup(groupName, groupID);
+
+        if (!VerifyGroup(groupName, groupID))
+			SetFailState("Could not create the Admin Group (\"%s\") for give Personal-Skins access.", groupName);
+    }
+    else
+        LogMessage("Admin group \"%s\" already exists.", groupName);
+}
+
+stock bool VerifyGroup(const char[] groupName, GroupId groupID)
+{
+    groupID = FindAdmGroup(groupName);
+    return groupID != INVALID_GROUP_ID;
+}
+
+stock void CreateGroup(const char[] groupName, GroupId groupID)
+{
+    groupID = CreateAdmGroup(groupName);
+    groupID.ImmunityLevel = 0;
+    LogMessage("Creating new admin group \"%s\"", groupName);
 }
