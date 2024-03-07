@@ -42,7 +42,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "2.0.0",
+	version = "2.0.1",
 	url = ""
 }
 
@@ -221,7 +221,7 @@ public Action Command_pSkin(int client, int args)
 	if (!g_bHasPersonalSkinsZombie[client] && !g_bHasPersonalSkinsHuman[client])
 		CReplyToCommand(client, "{green}[ZR] {default}You don't have personal-skin");
 	else
-		FakeClientCommand(client, "zclass"); // Print zclass menu to client, let him choose
+		ZR_MenuClass(client);
 
 	return Plugin_Handled;
 }
