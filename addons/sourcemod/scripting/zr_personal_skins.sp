@@ -26,7 +26,7 @@ ConVar 	g_cvZombies, g_cvHumans,
 char 	g_sPlayerModelZombie[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sPlayerModelHuman[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sDownListPath[PLATFORM_MAX_PATH],
- 		g_sFileSettingsPath[PLATFORM_MAX_PATH],
+		g_sFileSettingsPath[PLATFORM_MAX_PATH],
 		g_sGroupZombie[PLATFORM_MAX_PATH], g_sGroupHuman[PLATFORM_MAX_PATH],
 		g_sGroupZombieVIP[PLATFORM_MAX_PATH], g_sGroupHumanVIP[PLATFORM_MAX_PATH];
 
@@ -230,23 +230,18 @@ public Action Command_pSkin(int client, int args)
 // Need to give the groups used as filter in playerclass before ZR check if user can access to it.
 public void OnClientPostAdminFilter(int client)
 {
-	if (!client || IsClientSourceTV(client) || IsFakeClient(client))
+	if (g_KV == null || !client || IsClientSourceTV(client) || IsFakeClient(client))
 		return;
 
 	ResetClient(client);
 
-	char SteamID[24];
-	char IP[16];
-	char name[64];
+	char SteamID[24], IP[16], Name[64];
 
-	if(!GetClientIP(client, IP, sizeof(IP), true) || !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID)) || !GetClientName(client, name, sizeof(name)))
-		return;
-
-	if(g_KV == null)
+	if(!GetClientIP(client, IP, sizeof(IP), true) || !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID)) || !GetClientName(client, Name, sizeof(Name)))
 		return;
 
 	g_KV.Rewind();
-	if(!g_KV.JumpToKey(SteamID) && g_KV.JumpToKey(IP) && g_KV.JumpToKey(name))
+	if(!g_KV.JumpToKey(SteamID) && g_KV.JumpToKey(IP) && g_KV.JumpToKey(Name))
 		return;
 
 	g_KV.GetString("ModelZombie", g_sPlayerModelZombie[client], PLATFORM_MAX_PATH);
@@ -432,37 +427,57 @@ stock void ResetClient(int client)
 
 stock void VerifyGroups()
 {
-    VerifyAndCreateGroup(g_sGroupZombie, GrpID_Zombie);
-    VerifyAndCreateGroup(g_sGroupHuman, GrpID_Human);
+	VerifyAndCreateGroup(g_sGroupZombie);
+	VerifyAndCreateGroup(g_sGroupHuman);
 
 #if defined _vip_core_included
-    VerifyAndCreateGroup(g_sGroupZombieVIP, GrpID_Zombie_VIP);
-    VerifyAndCreateGroup(g_sGroupHumanVIP, GrpID_Human_VIP);
+	VerifyAndCreateGroup(g_sGroupZombieVIP);
+	VerifyAndCreateGroup(g_sGroupHumanVIP);
 #endif
 }
 
-stock void VerifyAndCreateGroup(const char[] groupName, GroupId groupID)
+stock void VerifyAndCreateGroup(const char[] groupName)
 {
-    if (!VerifyGroup(groupName, groupID))
-    {
-        CreateGroup(groupName, groupID);
+	if (!VerifyGroup(groupName))
+	{
+		CreateGroup(groupName);
 
-        if (!VerifyGroup(groupName, groupID))
+		if (!VerifyGroup(groupName))
 			SetFailState("Could not create the Admin Group (\"%s\") for give Personal-Skins access.", groupName);
-    }
-    else
-        LogMessage("Admin group \"%s\" already exists.", groupName);
+	}
+	else
+		LogMessage("Admin group \"%s\" already exists.", groupName);
 }
 
-stock bool VerifyGroup(const char[] groupName, GroupId groupID)
+stock bool VerifyGroup(const char[] groupName)
 {
-    groupID = FindAdmGroup(groupName);
-    return groupID != INVALID_GROUP_ID;
+	GroupId groupID = FindAdmGroup(groupName);
+	AssignGroupIDAndImmunityLevel(groupName, groupID);
+	return groupID != INVALID_GROUP_ID;
 }
 
-stock void CreateGroup(const char[] groupName, GroupId groupID)
+stock void CreateGroup(const char[] groupName)
 {
-    groupID = CreateAdmGroup(groupName);
-    groupID.ImmunityLevel = 0;
-    LogMessage("Creating new admin group \"%s\"", groupName);
+	GroupId groupID = CreateAdmGroup(groupName);
+	AssignGroupIDAndImmunityLevel(groupName, groupID);
+	LogMessage("Creating new admin group \"%s\"", groupName);
+}
+
+stock void AssignGroupIDAndImmunityLevel(const char[] groupName, GroupId groupID)
+{
+	if (groupID == INVALID_GROUP_ID)
+		LogError("Invalid group ID (%d) for group \"%s\"", groupID, groupName);
+	else
+	{
+		groupID.ImmunityLevel = 0;
+
+		if (strcmp(groupName, g_sGroupZombie) == 0)
+			GrpID_Zombie = groupID;
+		else if (strcmp(groupName, g_sGroupHuman) == 0)
+			GrpID_Human = groupID;
+		else if (strcmp(groupName, g_sGroupZombieVIP) == 0)
+			GrpID_Zombie_VIP = groupID;
+		else if (strcmp(groupName, g_sGroupHumanVIP) == 0)
+			GrpID_Human_VIP = groupID;
+	}
 }
