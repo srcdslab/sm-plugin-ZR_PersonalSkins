@@ -235,13 +235,13 @@ public void OnClientPostAdminFilter(int client)
 
 	ResetClient(client);
 
-	char SteamID[24], IP[16], Name[64];
+	char sSteamID[24], sIP[16], sName[64];
 
-	if(!GetClientIP(client, IP, sizeof(IP), true) || !GetClientAuthId(client, AuthId_Steam2, SteamID, sizeof(SteamID)) || !GetClientName(client, Name, sizeof(Name)))
+	if(!GetClientIP(client, sIP, sizeof(sIP), true) || !GetClientAuthId(client, AuthId_Steam2, sSteamID, sizeof(sSteamID)) || !GetClientName(client, sName, sizeof(sName)))
 		return;
 
 	g_KV.Rewind();
-	if(!g_KV.JumpToKey(SteamID) && g_KV.JumpToKey(IP) && g_KV.JumpToKey(Name))
+	if(!g_KV.JumpToKey(sSteamID) && g_KV.JumpToKey(sIP) && g_KV.JumpToKey(sName))
 		return;
 
 	g_KV.GetString("ModelZombie", g_sPlayerModelZombie[client], PLATFORM_MAX_PATH);
