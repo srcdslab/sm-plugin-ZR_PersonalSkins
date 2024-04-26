@@ -42,7 +42,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "2.0.1",
+	version = "2.0.2",
 	url = ""
 }
 
@@ -274,6 +274,10 @@ public void OnClientPostAdminFilter(int client)
 	
 		g_bHasPersonalSkinsHuman[client] = true;
 	}
+
+	// No personal-skin found for this player - Stop here
+	if (!g_bHasPersonalSkinsHuman[client] && !g_bHasPersonalSkinsZombie[client])
+		return;
 
 	AdminId AdmID;
 
