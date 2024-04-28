@@ -42,7 +42,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "2.0.2",
+	version = "2.0.3",
 	url = ""
 }
 
@@ -314,7 +314,14 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 
 	if(IsValidClient(client) && IsPlayerAlive(client) && (g_bHasPersonalSkinsZombie[client] || g_bHasPersonalSkinsHuman[client]))
 	{
-		int iActiveClass = ZR_GetActiveClass(client);
+		// Small workaround to prevent #10 - https://github.com/srcdslab/sm-plugin-ZR_PersonalSkins/issues/10
+		int iActiveClass = -1;
+
+		if (client && IsPlayerAlive(client))
+			iActiveClass = ZR_GetActiveClass(client);
+		else
+			return;
+
 		int iPersonalHumanClass = ZR_GetClassByIdentifier(g_sGroupHuman);
 		int iPersonalZombieClass = ZR_GetClassByIdentifier(g_sGroupZombie);
 		int iPersonalHumanClassVIP = ZR_GetClassByIdentifier(g_sGroupHumanVIP);
