@@ -5,44 +5,34 @@
 #include <zombiereloaded>
 #include <utilshelper>
 
-#undef REQUIRE_PLUGIN
-#tryinclude <vip_core>
-#define REQUIRE_PLUGIN
-
 #pragma semicolon 1
 #pragma newdecls required
 
 //#define DEBUG
 
 bool	g_bHasPersonalSkinsZombie[MAXPLAYERS + 1] = { false, ... },
-		g_bHasPersonalSkinsHuman[MAXPLAYERS + 1] = { false, ... },
-		g_bVipCore = false;
+		g_bHasPersonalSkinsHuman[MAXPLAYERS + 1] = { false, ... };
 
 ConVar 	g_cvZombies, g_cvHumans,
 		g_cvFileSettingsPath, g_cvDownListPath,
-		g_cvGrpZombie, g_cvGrpHuman,
-		g_cvGrpZombieVIP, g_cvGrpHumanVIP;
+		g_cvClassIdentifierZombie, g_cvClassIdentifierHuman,
+		g_cvClassIdentifierZombieVIP, g_cvClassIdentifierHumanVIP;
 
 char 	g_sPlayerModelZombie[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sPlayerModelHuman[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sDownListPath[PLATFORM_MAX_PATH],
 		g_sFileSettingsPath[PLATFORM_MAX_PATH],
-		g_sGroupZombie[PLATFORM_MAX_PATH], g_sGroupHuman[PLATFORM_MAX_PATH],
-		g_sGroupZombieVIP[PLATFORM_MAX_PATH], g_sGroupHumanVIP[PLATFORM_MAX_PATH];
+		g_sClassIdentifierZombie[PLATFORM_MAX_PATH], g_sClassIdentifierHuman[PLATFORM_MAX_PATH],
+		g_sClassIdentifierZombieVIP[PLATFORM_MAX_PATH], g_sClassIdentifierHumanVIP[PLATFORM_MAX_PATH];
 
 KeyValues g_KV;
-
-GroupId GrpID_Human,
-		GrpID_Human_VIP,
-		GrpID_Zombie,
-		GrpID_Zombie_VIP;
 
 public Plugin myinfo =
 {
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "2.0.3",
+	version = "2.1.0",
 	url = ""
 }
 
@@ -63,47 +53,30 @@ public void OnPluginStart()
 	g_cvHumans 		= CreateConVar("zr_personalskins_humans_enable", "1", "Enable personal skin pickup for Humans", _, true, 0.0, true, 1.0);
 
 	/* Groups */
-	g_cvGrpZombie 	= CreateConVar("zr_personalskins_group_zombie", "Personal-Skin-Zombie", "Group name for personal skin zombie", FCVAR_PROTECTED);
-	g_cvGrpHuman 	= CreateConVar("zr_personalskins_group_human", "Personal-Skin-Human", "Group name for personal skin human", FCVAR_PROTECTED);
-	g_cvGrpZombieVIP = CreateConVar("zr_personalskins_group_zombie_vip", "Personal-Skin-Zombie-VIP", "Group name for personal skin zombie VIP", FCVAR_PROTECTED);
-	g_cvGrpHumanVIP = CreateConVar("zr_personalskins_group_human_vip", "Personal-Skin-Human-VIP", "Group name for personal skin human VIP", FCVAR_PROTECTED);
+	g_cvClassIdentifierZombie 	= CreateConVar("zr_personalskins_group_zombie", "Personal-Skin-Zombie", "Class identifier name for personal skin zombie", FCVAR_PROTECTED);
+	g_cvClassIdentifierHuman 	= CreateConVar("zr_personalskins_group_human", "Personal-Skin-Human", "Class identifier name for personal skin human", FCVAR_PROTECTED);
+	g_cvClassIdentifierZombieVIP = CreateConVar("zr_personalskins_group_zombie_vip", "Personal-Skin-Zombie-VIP", "Class identifier name for personal skin zombie VIP", FCVAR_PROTECTED);
+	g_cvClassIdentifierHumanVIP = CreateConVar("zr_personalskins_group_human_vip", "Personal-Skin-Human-VIP", "Class identifier name for personal skin human VIP", FCVAR_PROTECTED);
 
 	g_cvDownListPath.AddChangeHook(CvarChanges);
 	g_cvFileSettingsPath.AddChangeHook(CvarChanges);
-	g_cvGrpZombie.AddChangeHook(CvarChanges);
-	g_cvGrpHuman.AddChangeHook(CvarChanges);
-	g_cvGrpZombieVIP.AddChangeHook(CvarChanges);
-	g_cvGrpHumanVIP.AddChangeHook(CvarChanges);
+	g_cvClassIdentifierZombie.AddChangeHook(CvarChanges);
+	g_cvClassIdentifierHuman.AddChangeHook(CvarChanges);
+	g_cvClassIdentifierZombieVIP.AddChangeHook(CvarChanges);
+	g_cvClassIdentifierHumanVIP.AddChangeHook(CvarChanges);
 
 	/* Initialize values + Handle plugin reload */
 	GetConVarString(g_cvFileSettingsPath, g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
 	GetConVarString(g_cvDownListPath, g_sDownListPath, sizeof(g_sDownListPath));
-	GetConVarString(g_cvGrpZombie, g_sGroupZombie, sizeof(g_sGroupZombie));
-	GetConVarString(g_cvGrpHuman, g_sGroupHuman, sizeof(g_sGroupHuman));
-	GetConVarString(g_cvGrpZombieVIP, g_sGroupZombieVIP, sizeof(g_sGroupZombieVIP));
-	GetConVarString(g_cvGrpHumanVIP, g_sGroupHumanVIP, sizeof(g_sGroupHumanVIP));
+	GetConVarString(g_cvClassIdentifierZombie, g_sClassIdentifierZombie, sizeof(g_sClassIdentifierZombie));
+	GetConVarString(g_cvClassIdentifierHuman, g_sClassIdentifierHuman, sizeof(g_sClassIdentifierHuman));
+	GetConVarString(g_cvClassIdentifierZombieVIP, g_sClassIdentifierZombieVIP, sizeof(g_sClassIdentifierZombieVIP));
+	GetConVarString(g_cvClassIdentifierHumanVIP, g_sClassIdentifierHumanVIP, sizeof(g_sClassIdentifierHumanVIP));
 
 	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_ROOT);
 	RegConsoleCmd("sm_pskin", Command_pSkin);
 
 	AutoExecConfig(true, "zr_personal_skins", "zombiereloaded");
-}
-
-public void OnAllPluginsLoaded()
-{
-	g_bVipCore = LibraryExists("vip_core");
-}
-
-public void OnLibraryAdded(const char[] name)
-{
-	if (StrEqual(name, "vip_core"))
-		g_bVipCore = true;
-}
-
-public void OnLibraryRemoved(const char[] name)
-{
-	if (StrEqual(name, "vip_core"))
-		g_bVipCore = false;
 }
 
 public void OnMapEnd()
@@ -129,8 +102,6 @@ public void OnMapEnd()
 
 public void OnConfigsExecuted()
 {
-	VerifyGroups();
-
 	g_cvFileSettingsPath.GetString(g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
 	g_cvDownListPath.GetString(g_sDownListPath, sizeof(g_sDownListPath));
 
@@ -168,7 +139,7 @@ public void CvarChanges(ConVar convar, const char[] oldValue, const char[] newVa
 		return;
 	}
 
-	if (convar == g_cvDownListPath)
+	else if (convar == g_cvDownListPath)
 	{
 		strcopy(g_sDownListPath, sizeof(g_sDownListPath), newValue);
 		if(!FileExists(g_sDownListPath, false))
@@ -177,17 +148,17 @@ public void CvarChanges(ConVar convar, const char[] oldValue, const char[] newVa
 		File_ReadDownloadList(g_sDownListPath);
 	}
 
-	if (convar == g_cvGrpZombie)
-		strcopy(g_sGroupZombie, sizeof(g_sGroupZombie), newValue);
+	else if (convar == g_cvClassIdentifierZombie)
+		strcopy(g_sClassIdentifierZombie, sizeof(g_sClassIdentifierZombie), newValue);
 
-	if (convar == g_cvGrpHuman)
-		strcopy(g_sGroupHuman, sizeof(g_sGroupHuman), newValue);
+	else if (convar == g_cvClassIdentifierHuman)
+		strcopy(g_sClassIdentifierHuman, sizeof(g_sClassIdentifierHuman), newValue);
 
-	if (convar == g_cvGrpZombieVIP)
-		strcopy(g_sGroupZombieVIP, sizeof(g_sGroupZombieVIP), newValue);
+	else if (convar == g_cvClassIdentifierZombieVIP)
+		strcopy(g_sClassIdentifierZombieVIP, sizeof(g_sClassIdentifierZombieVIP), newValue);
 
-	if (convar == g_cvGrpHumanVIP)
-		strcopy(g_sGroupHumanVIP, sizeof(g_sGroupHumanVIP), newValue);
+	else if (convar == g_cvClassIdentifierHumanVIP)
+		strcopy(g_sClassIdentifierHumanVIP, sizeof(g_sClassIdentifierHumanVIP), newValue);
 }
 
 public Action Command_Reload(int client, int args)
@@ -279,31 +250,38 @@ public void OnClientPostAdminFilter(int client)
 	if (!g_bHasPersonalSkinsHuman[client] && !g_bHasPersonalSkinsZombie[client])
 		return;
 
-	AdminId AdmID;
+	GrantCustom5Flag(client);
+}
 
-	if ((AdmID = GetUserAdmin(client)) == INVALID_ADMIN_ID)
+public void OnRebuildAdminCache(AdminCachePart part)
+{
+	if (part != AdminCache_Admins)
+		return;
+
+	for (int client = 1; client <= MaxClients; client++)
 	{
-		AdmID = CreateAdmin();
-		SetUserAdmin(client, AdmID, true);
-		LogMessage("Creating new admin for %L", client);
+		if (!IsClientInGame(client))
+			continue;
+		if (IsFakeClient(client))
+			continue;
+		if (IsClientSourceTV(client))
+			continue;
+		if (!g_bHasPersonalSkinsZombie[client] && !g_bHasPersonalSkinsHuman[client])
+			continue;
+
+		GrantCustom5Flag(client);
 	}
+}
 
-	if (g_bHasPersonalSkinsZombie[client] && AdminInheritGroup(AdmID, GrpID_Zombie))
-		LogMessage("%L added to group \"%s\"", client, g_sGroupZombie);
-
-	if (g_bHasPersonalSkinsHuman[client] && AdminInheritGroup(AdmID, GrpID_Human))
-		LogMessage("%L added to group \"%s\"", client, g_sGroupHuman);
-
-#if defined _vip_core_included
-	if (g_bVipCore && VIP_IsClientVIP(client))
+stock void GrantCustom5Flag(int client)
+{
+	int flags = GetUserFlagBits(client);
+	if (!(flags & ADMFLAG_CUSTOM5))
 	{
-		if(g_bHasPersonalSkinsZombie[client] && AdminInheritGroup(AdmID, GrpID_Zombie_VIP))
-			LogMessage("%L added to group \"%s\"", client, g_sGroupZombieVIP);
-
-		if(g_bHasPersonalSkinsHuman[client] && AdminInheritGroup(AdmID, GrpID_Human_VIP))
-			LogMessage("%L added to group \"%s\"", client, g_sGroupHumanVIP);
+		flags |= ADMFLAG_CUSTOM5;
+		SetUserFlagBits(client, flags);
+		LogMessage("Granted custom5 flag to %L", client);
 	}
-#endif
 }
 
 public void ZR_OnClassAttributesApplied(int &client, int &classindex)
@@ -322,10 +300,10 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 		else
 			return;
 
-		int iPersonalHumanClass = ZR_GetClassByIdentifier(g_sGroupHuman);
-		int iPersonalZombieClass = ZR_GetClassByIdentifier(g_sGroupZombie);
-		int iPersonalHumanClassVIP = ZR_GetClassByIdentifier(g_sGroupHumanVIP);
-		int iPersonalZombieClassVIP = ZR_GetClassByIdentifier(g_sGroupZombieVIP);
+		int iPersonalHumanClass = ZR_GetClassByIdentifier(g_sClassIdentifierHuman);
+		int iPersonalZombieClass = ZR_GetClassByIdentifier(g_sClassIdentifierZombie);
+		int iPersonalHumanClassVIP = ZR_GetClassByIdentifier(g_sClassIdentifierHumanVIP);
+		int iPersonalZombieClassVIP = ZR_GetClassByIdentifier(g_sClassIdentifierZombieVIP);
 
 		#if defined DEBUG
 		LogMessage("%N has active class %d", client, iActiveClass);
@@ -340,10 +318,12 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 			return;
 
 		char modelpath[PLATFORM_MAX_PATH];
-		if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP)
+		if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP))
 			Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
-		else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP)
+		else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP))
 			Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
+		else
+			return;
 
 		// Player has a Personal-Skin but no model related to the current team or model_path wasn't set.
 		if (strlen(modelpath) == 0)
@@ -379,8 +359,8 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 			LogMessage("Hotfix: Model has been preached.. Yay! (%s)", modelpath);
 			#endif
 		}
-		else
-			SetEntityModel(client, modelpath);
+
+		SetEntityModel(client, modelpath);
 	}
 }
 
@@ -434,61 +414,4 @@ stock void ResetClient(int client)
 	g_bHasPersonalSkinsHuman[client] = false;
 	g_sPlayerModelZombie[client] = "";
 	g_sPlayerModelHuman[client] = "";
-}
-
-stock void VerifyGroups()
-{
-	VerifyAndCreateGroup(g_sGroupZombie);
-	VerifyAndCreateGroup(g_sGroupHuman);
-
-#if defined _vip_core_included
-	VerifyAndCreateGroup(g_sGroupZombieVIP);
-	VerifyAndCreateGroup(g_sGroupHumanVIP);
-#endif
-}
-
-stock void VerifyAndCreateGroup(const char[] groupName)
-{
-	if (!VerifyGroup(groupName))
-	{
-		CreateGroup(groupName);
-
-		if (!VerifyGroup(groupName))
-			SetFailState("Could not create the Admin Group (\"%s\") for give Personal-Skins access.", groupName);
-	}
-	else
-		LogMessage("Admin group \"%s\" already exists.", groupName);
-}
-
-stock bool VerifyGroup(const char[] groupName)
-{
-	GroupId groupID = FindAdmGroup(groupName);
-	AssignGroupIDAndImmunityLevel(groupName, groupID);
-	return groupID != INVALID_GROUP_ID;
-}
-
-stock void CreateGroup(const char[] groupName)
-{
-	GroupId groupID = CreateAdmGroup(groupName);
-	AssignGroupIDAndImmunityLevel(groupName, groupID);
-	LogMessage("Creating new admin group \"%s\"", groupName);
-}
-
-stock void AssignGroupIDAndImmunityLevel(const char[] groupName, GroupId groupID)
-{
-	if (groupID == INVALID_GROUP_ID)
-		LogError("Invalid group ID (%d) for group \"%s\"", groupID, groupName);
-	else
-	{
-		groupID.ImmunityLevel = 0;
-
-		if (strcmp(groupName, g_sGroupZombie) == 0)
-			GrpID_Zombie = groupID;
-		else if (strcmp(groupName, g_sGroupHuman) == 0)
-			GrpID_Human = groupID;
-		else if (strcmp(groupName, g_sGroupZombieVIP) == 0)
-			GrpID_Zombie_VIP = groupID;
-		else if (strcmp(groupName, g_sGroupHumanVIP) == 0)
-			GrpID_Human_VIP = groupID;
-	}
 }
