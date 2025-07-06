@@ -1,14 +1,10 @@
 sm-plugin-ZR_PersonalSkins
 > [!IMPORTANT]
-> This version is using SourceMod group and playerclasses (!zclass) to access to Personal Skin
+> This version is using SourceMod Custom Flag 5 and playerclasses (!zclass) to access to Personal Skin
 
-Create the admin group: `sourcemod/configs/admin_groups.cfg`
-```
-"Personal-Skins"
-{
-    "immunity" "0"
-}
-```
+> [!TIP]
+> You can use multiples flags like "os" (Custom 1 && Custom 5)
+
 Exemple to use in `playerclasses.txt`
 ```
 "personalskin_zombie"
@@ -18,7 +14,8 @@ Exemple to use in `playerclasses.txt`
     "team"                  "0"
     "team_default"          "no"
     "flags"                 "0"
-    "group"                 "Personal-Skin-Zombie"
+    "group"                 ""
+    "sm_flags"              "s" // (Custom5)
     
     "name"                  "Personal Skin"
     "description"           "Your private skin"
