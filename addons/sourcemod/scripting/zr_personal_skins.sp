@@ -318,9 +318,9 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 			return;
 
 		char modelpath[PLATFORM_MAX_PATH];
-		if (ZR_IsClientZombie(client))
+		if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP))
 			Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
-		else if (ZR_IsClientHuman(client))
+		else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP))
 			Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
 		else
 			return;
