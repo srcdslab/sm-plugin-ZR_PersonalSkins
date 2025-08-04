@@ -61,7 +61,7 @@ public Plugin myinfo = {
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade (Remade by Dolly)",
-	version = "2.2.2",
+	version = "2.2.3",
 	url = ""
 };
 
@@ -71,7 +71,6 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 }
 
 public void OnPluginStart() {
-	RegConsoleCmd("sm_test3", cmd);
 	/* Paths Configs */
 	g_cvDownListPath 		= CreateConVar("zr_personalskins_downloadslist", "addons/sourcemod/configs/zr_personalskins_downloadslist.txt", "Config path of the download list", FCVAR_NONE);
 	g_cvFileSettingsPath 	= CreateConVar("zr_personalskins_skinslist", "addons/sourcemod/data/zr_personal_skins.txt", "Config path of the skin settings", FCVAR_NONE);
@@ -106,20 +105,6 @@ public void OnPluginStart() {
 	AutoExecConfig(true, "zr_personal_skins", "zombiereloaded");
 }
 
-Action cmd(int client, int args) {
-	char date[120];
-	
-	FormatTime(date, sizeof(date), DATE_FORMAT, g_PlayerData[client].endHuman);
-	PrintToChat(client, date);
-	
-	FormatTime(date, sizeof(date), DATE_FORMAT, g_PlayerData[client].endZombie);
-	PrintToChat(client, date);
-	
-	PrintToChat(client, g_PlayerData[client].modelHuman);
-	PrintToChat(client, g_PlayerData[client].modelZombie);
-
-	return Plugin_Handled;
-}
 /* Map End */
 public void OnMapEnd() {
 	delete g_hKV;
@@ -278,7 +263,6 @@ bool ValidatePersonalSkin(int client, const char[] modelKey, const char[] endKey
 		&& strlen(model) != 0) {
 		bool has = false;
 		char endTime[24];
-		PrintToServer("#1: Success");
 		g_hKV.GetString(endKey, endTime, sizeof(endTime));
 		if(endTime[0]) {
 			// for end time (useful if skin was rewarded during an event and there is an end for it)
@@ -290,7 +274,6 @@ bool ValidatePersonalSkin(int client, const char[] modelKey, const char[] endKey
 			if(endTimeStamp > GetTime()) {
 				has = true;
 				skinEndTime = endTimeStamp;
-				PrintToServer("End Time Int1: %d", skinEndTime);
 			}
 		} else {
 			has = true;
@@ -301,7 +284,6 @@ bool ValidatePersonalSkin(int client, const char[] modelKey, const char[] endKey
 			{
 				LogError("[ZR-Personal Skins] %L Personal Skins (Zombie) is not a model file. (.mdl)", client);
 				has = false;
-				PrintToServer("#2: Error");
 			}
 
 			if (has && !IsModelPrecached(model)) {
@@ -347,51 +329,55 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex) {
 		return;
 	}
 	
-	int activeClass = ZR_GetActiveClass(client);
+	bool zm = ZR_IsClientZombie(client);
+	if(zm && (!g_cvZombies.BoolValue || !g_PlayerData[client].hasZombie || (g_PlayerData[client].endZombie > 0 && g_PlayerData[client].endZombie <= GetTime()))) {
+		return;
+	}
 	
-	int personalHumanClass 		= ZR_GetClassByIdentifier(g_sClassIdentifierHuman);
-	int personalZombieClass 	= ZR_GetClassByIdentifier(g_sClassIdentifierZombie);
-	int personalHumanClassVIP 	= ZR_GetClassByIdentifier(g_sClassIdentifierHumanVIP);
-	int	personalZombieClassVIP 	= ZR_GetClassByIdentifier(g_sClassIdentifierZombieVIP);
-	
-	#if defined DEBUG
-		LogMessage("[ZR-Personal Skins] %N has active class %d", client, activeClass);
-		LogMessage("[ZR-Personal Skins] Personal human: %d", personalHumanClass);
-		LogMessage("[ZR-Personal Skins] Personal zombie: %d", personalZombieClass);
-		LogMessage("[ZR-Personal Skins] Personal human VIP: %d", personalHumanClassVIP);
-		LogMessage("[ZR-Personal Skins] Personal zombie VIP: %d", personalZombieClassVIP);
-	#endif
-	
+	if(!zm && (!g_cvHumans.BoolValue || g_PlayerData[client].hasHuman || (g_PlayerData[client].endHuman > 0 && g_PlayerData[client].endHuman <= GetTime()))) {
+		return;
+	}
 	
 	char modelpath[PLATFORM_MAX_PATH];
 	switch (g_cvTeamMode.IntValue) {
 		case 0: {
+			int activeClass = ZR_GetActiveClass(client);
 			if(!ZR_IsValidClassIndex(activeClass)) {
 				return;
 			}
 			
-			// If user is not using a Personal-Skin, stop here.
-			if (
-				!(activeClass == personalHumanClass 
-				|| activeClass == personalZombieClass 
-				|| activeClass == personalHumanClassVIP 
-				|| activeClass == personalZombieClassVIP)
-			) {
-				return;
-			}
-
-			if (ZR_IsClientZombie(client) && g_cvZombies.BoolValue && (activeClass == personalZombieClass || activeClass == personalZombieClassVIP)) {
+			int personalHumanClass 		= ZR_GetClassByIdentifier(g_sClassIdentifierHuman);
+			int personalZombieClass 	= ZR_GetClassByIdentifier(g_sClassIdentifierZombie);
+			int personalHumanClassVIP 	= ZR_GetClassByIdentifier(g_sClassIdentifierHumanVIP);
+			int	personalZombieClassVIP 	= ZR_GetClassByIdentifier(g_sClassIdentifierZombieVIP);
+			
+			#if defined DEBUG
+				LogMessage("[ZR-Personal Skins] %N has active class %d", client, activeClass);
+				LogMessage("[ZR-Personal Skins] Personal human: %d", personalHumanClass);
+				LogMessage("[ZR-Personal Skins] Personal zombie: %d", personalZombieClass);
+				LogMessage("[ZR-Personal Skins] Personal human VIP: %d", personalHumanClassVIP);
+				LogMessage("[ZR-Personal Skins] Personal zombie VIP: %d", personalZombieClassVIP);
+			#endif
+			
+			if(zm) {
+				if(activeClass != personalZombieClass && activeClass != personalZombieClassVIP) {
+					return;
+				}
+				
 				strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelZombie);
-			} else if(ZR_IsClientHuman(client) && g_cvHumans.BoolValue && (activeClass == personalHumanClass || activeClass == personalHumanClassVIP)) {
+			} else {
+				if(activeClass != personalHumanClass && activeClass != personalHumanClassVIP) {
+					return;
+				}
+				
 				strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelHuman);
 			}
 		}
 		
 		case 1: {
-			int team = GetClientTeam(client);
-			if (team == 2 && g_cvZombies.BoolValue && g_PlayerData[client].hasZombie)
+			if (zm)
 				strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelZombie);
-			else if (team == 3 && g_cvHumans.BoolValue && g_PlayerData[client].hasHuman)
+			else
 				strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelHuman);
 		}
 		
