@@ -16,7 +16,8 @@ bool	g_bHasPersonalSkinsZombie[MAXPLAYERS + 1] = { false, ... },
 ConVar 	g_cvZombies, g_cvHumans,
 		g_cvFileSettingsPath, g_cvDownListPath,
 		g_cvClassIdentifierZombie, g_cvClassIdentifierHuman,
-		g_cvClassIdentifierZombieVIP, g_cvClassIdentifierHumanVIP;
+		g_cvClassIdentifierZombieVIP, g_cvClassIdentifierHumanVIP,
+		g_cvTeamMode;
 
 char 	g_sPlayerModelZombie[MAXPLAYERS+1][PLATFORM_MAX_PATH],
 		g_sPlayerModelHuman[MAXPLAYERS+1][PLATFORM_MAX_PATH],
@@ -32,7 +33,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "2.1.0",
+	version = "2.2.0",
 	url = ""
 }
 
@@ -57,6 +58,7 @@ public void OnPluginStart()
 	g_cvClassIdentifierHuman 	= CreateConVar("zr_personalskins_group_human", "Personal-Skin-Human", "Class identifier name for personal skin human", FCVAR_PROTECTED);
 	g_cvClassIdentifierZombieVIP = CreateConVar("zr_personalskins_group_zombie_vip", "Personal-Skin-Zombie-VIP", "Class identifier name for personal skin zombie VIP", FCVAR_PROTECTED);
 	g_cvClassIdentifierHumanVIP = CreateConVar("zr_personalskins_group_human_vip", "Personal-Skin-Human-VIP", "Class identifier name for personal skin human VIP", FCVAR_PROTECTED);
+	g_cvTeamMode = CreateConVar("zr_personalskins_team_mode", "0", "0: validation par class identifier, 1: validation par team (T=zm, CT=human)", FCVAR_NONE, true, 0.0, true, 1.0);
 
 	g_cvDownListPath.AddChangeHook(CvarChanges);
 	g_cvFileSettingsPath.AddChangeHook(CvarChanges);
@@ -313,17 +315,33 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 		LogMessage("Personal zombie VIP: %d", iPersonalZombieClassVIP);
 		#endif
 
-		// If user is not using a Personal-Skin, stop here.
-		if (ZR_IsValidClassIndex(iActiveClass) && (!(iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalHumanClassVIP || iActiveClass == iPersonalZombieClassVIP)))
-			return;
-
 		char modelpath[PLATFORM_MAX_PATH];
-		if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP))
-			Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
-		else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP))
-			Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
-		else
-			return;
+		switch (g_cvTeamMode.IntValue)
+		{
+			case 0:
+			{
+				// If user is not using a Personal-Skin, stop here.
+				if (ZR_IsValidClassIndex(iActiveClass) && (!(iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalHumanClassVIP || iActiveClass == iPersonalZombieClassVIP)))
+					return;
+
+				if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP))
+					Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
+				else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP))
+					Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
+			}
+			case 1:
+			{
+				int team = GetClientTeam(client);
+				if (team == 2 && g_bHasPersonalSkinsZombie[client])
+					Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
+				else if (team == 3 && g_bHasPersonalSkinsHuman[client])
+					Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
+			}
+			default:
+			{
+				return;
+			}
+		}
 
 		// Player has a Personal-Skin but no model related to the current team or model_path wasn't set.
 		if (strlen(modelpath) == 0)
