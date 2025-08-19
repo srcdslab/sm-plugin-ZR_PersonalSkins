@@ -274,8 +274,8 @@ public void OnClientPostAdminFilter(int client)
 /* To validate if the player can use the personal skin or not */
 bool ValidatePersonalSkin(int client, const char[] modelKey, const char[] endKey, char[] model, int maxlen, int &skinEndTime = 0)
 {
-	if(g_hKV.GetString(modelKey, model, maxlen)
-		&& strlen(model) != 0)
+	g_hKV.GetString(modelKey, model, maxlen);
+	if(strlen(model) != 0)
 	{
 		bool has = false;
 		int endTime = g_hKV.GetNum(endKey, 0);
@@ -299,7 +299,9 @@ bool ValidatePersonalSkin(int client, const char[] modelKey, const char[] endKey
 		{
 			if (!IsModelFile(model))
 			{
-				LogError("[ZR-Personal Skins] %L Personal Skins (Zombie) is not a model file. (.mdl)", client);
+				#if defined DEBUG
+				LogError("[ZR-Personal Skins] %L Personal Skins (%s) is not a model file. (.mdl)", client, (StrContains(modelKey, "zombie") == -1) ? "Human" : "Zombie");
+				#endif
 				has = false;
 			}
 
