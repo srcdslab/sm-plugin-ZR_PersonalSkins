@@ -1,3 +1,6 @@
+#pragma semicolon 1
+#pragma newdecls required
+
 #include <sourcemod>
 #include <sdktools>
 #include <smlib>
@@ -5,13 +8,7 @@
 #include <zombiereloaded>
 #include <utilshelper>
 
-#pragma semicolon 1
-#pragma newdecls required
-
 //#define DEBUG
-
-bool	g_bHasPersonalSkinsZombie[MAXPLAYERS + 1] = { false, ... },
-		g_bHasPersonalSkinsHuman[MAXPLAYERS + 1] = { false, ... };
 
 ConVar 	g_cvZombies, g_cvHumans,
 		g_cvFileSettingsPath, g_cvDownListPath,
@@ -19,21 +16,38 @@ ConVar 	g_cvZombies, g_cvHumans,
 		g_cvClassIdentifierZombieVIP, g_cvClassIdentifierHumanVIP,
 		g_cvTeamMode;
 
-char 	g_sPlayerModelZombie[MAXPLAYERS+1][PLATFORM_MAX_PATH],
-		g_sPlayerModelHuman[MAXPLAYERS+1][PLATFORM_MAX_PATH],
-		g_sDownListPath[PLATFORM_MAX_PATH],
+char 	g_sDownListPath[PLATFORM_MAX_PATH],
 		g_sFileSettingsPath[PLATFORM_MAX_PATH],
 		g_sClassIdentifierZombie[PLATFORM_MAX_PATH], g_sClassIdentifierHuman[PLATFORM_MAX_PATH],
 		g_sClassIdentifierZombieVIP[PLATFORM_MAX_PATH], g_sClassIdentifierHumanVIP[PLATFORM_MAX_PATH];
 
 KeyValues g_KV;
 
+enum struct PlayerData
+{
+	bool hasZombie;
+	bool hasHuman;
+	
+	char modelZombie[PLATFORM_MAX_PATH];
+	char modelHuman[PLATFORM_MAX_PATH];
+	
+	void Reset()
+	{
+		this.hasZombie = false; 
+		this.hasHuman = false;
+		this.modelZombie[0] = '\0';
+		this.modelHuman[0] = '\0';
+	}
+}
+
+PlayerData g_PlayerData[MAXPLAYERS + 1];
+
 public Plugin myinfo =
 {
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "2.2.0",
+	version = "3.0.0",
 	url = ""
 }
 
@@ -68,12 +82,12 @@ public void OnPluginStart()
 	g_cvClassIdentifierHumanVIP.AddChangeHook(CvarChanges);
 
 	/* Initialize values + Handle plugin reload */
-	GetConVarString(g_cvFileSettingsPath, g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
-	GetConVarString(g_cvDownListPath, g_sDownListPath, sizeof(g_sDownListPath));
-	GetConVarString(g_cvClassIdentifierZombie, g_sClassIdentifierZombie, sizeof(g_sClassIdentifierZombie));
-	GetConVarString(g_cvClassIdentifierHuman, g_sClassIdentifierHuman, sizeof(g_sClassIdentifierHuman));
-	GetConVarString(g_cvClassIdentifierZombieVIP, g_sClassIdentifierZombieVIP, sizeof(g_sClassIdentifierZombieVIP));
-	GetConVarString(g_cvClassIdentifierHumanVIP, g_sClassIdentifierHumanVIP, sizeof(g_sClassIdentifierHumanVIP));
+	g_cvFileSettingsPath.GetString(g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
+	g_cvDownListPath.GetString(g_sDownListPath, sizeof(g_sDownListPath));
+	g_cvClassIdentifierZombie.GetString(g_sClassIdentifierZombie, sizeof(g_sClassIdentifierZombie));
+	g_cvClassIdentifierHuman.GetString(g_sClassIdentifierHuman, sizeof(g_sClassIdentifierHuman));
+	g_cvClassIdentifierZombieVIP.GetString(g_sClassIdentifierZombieVIP, sizeof(g_sClassIdentifierZombieVIP));
+	g_cvClassIdentifierHumanVIP.GetString(g_sClassIdentifierHumanVIP, sizeof(g_sClassIdentifierHumanVIP));
 
 	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_ROOT);
 	RegConsoleCmd("sm_pskin", Command_pSkin);
@@ -83,18 +97,6 @@ public void OnPluginStart()
 
 public void OnMapEnd()
 {
-	for (int i = 1; i <= MaxClients; i++)
-	{
-		if (!IsClientConnected(i))
-			continue;
-
-		if (!g_bHasPersonalSkinsZombie[i] || !g_bHasPersonalSkinsHuman[i])
-			continue;
-
-		g_sPlayerModelZombie[i] = "";
-		g_sPlayerModelHuman[i] = "";
-	}
-
 	delete g_KV;
 
 	// Restore cvar to 1
@@ -109,14 +111,14 @@ public void OnConfigsExecuted()
 
 	g_KV = new KeyValues("SkinSettings");
 	
-	if(!g_KV.ImportFromFile(g_sFileSettingsPath))
+	if (!g_KV.ImportFromFile(g_sFileSettingsPath))
 	{
 		SetFailState("File '%s' not found!", g_sFileSettingsPath);
 		delete g_KV;
 		return;
 	}
 	
-	if(!FileExists(g_sDownListPath, false))
+	if (!FileExists(g_sDownListPath, false))
 	{
 		LogError("Downloadslist '%s' not found", g_sDownListPath);
 		return;
@@ -129,7 +131,7 @@ public void CvarChanges(ConVar convar, const char[] oldValue, const char[] newVa
 {
 	if (convar == g_cvFileSettingsPath)
 	{
-		if(g_KV == null)
+		if (g_KV == null)
 			return;
 
 		strcopy(g_sFileSettingsPath, sizeof(g_sFileSettingsPath), newValue);
@@ -144,7 +146,7 @@ public void CvarChanges(ConVar convar, const char[] oldValue, const char[] newVa
 	else if (convar == g_cvDownListPath)
 	{
 		strcopy(g_sDownListPath, sizeof(g_sDownListPath), newValue);
-		if(!FileExists(g_sDownListPath, false))
+		if (!FileExists(g_sDownListPath, false))
 			return;
 
 		File_ReadDownloadList(g_sDownListPath);
@@ -165,7 +167,7 @@ public void CvarChanges(ConVar convar, const char[] oldValue, const char[] newVa
 
 public Action Command_Reload(int client, int args)
 {
-	if(FileExists(g_sDownListPath, false))
+	if (FileExists(g_sDownListPath, false))
 	{
 		File_ReadDownloadList(g_sDownListPath);
 	
@@ -173,11 +175,11 @@ public Action Command_Reload(int client, int args)
 		LogAction(-1, -1, "[ZR-PersonalSkin] %L Reloaded the Personal-Skin List.", client);
 	}
 
-	if(g_KV == null)
+	if (g_KV == null)
 		return Plugin_Handled;
 
 	ClearKV(g_KV);
-	if(!g_KV.ImportFromFile(g_sFileSettingsPath))
+	if (!g_KV.ImportFromFile(g_sFileSettingsPath))
 	{
 		SetFailState("File '%s' not found!", g_sFileSettingsPath);
 		CReplyToCommand(client, "{green}[ZR] {red}File '%' not found!", g_sFileSettingsPath);
@@ -191,7 +193,7 @@ public Action Command_pSkin(int client, int args)
 	if (!client)
 		return Plugin_Handled;
 
-	if (!g_bHasPersonalSkinsZombie[client] && !g_bHasPersonalSkinsHuman[client])
+	if (!g_PlayerData[client].hasZombie && !g_PlayerData[client].hasHuman)
 		CReplyToCommand(client, "{green}[ZR] {default}You don't have personal-skin");
 	else
 		ZR_MenuClass(client);
@@ -203,53 +205,53 @@ public Action Command_pSkin(int client, int args)
 // Need to give the groups used as filter in playerclass before ZR check if user can access to it.
 public void OnClientPostAdminFilter(int client)
 {
-	if (g_KV == null || !client || IsClientSourceTV(client) || IsFakeClient(client))
+	if (g_KV == null || IsClientSourceTV(client) || IsFakeClient(client))
 		return;
 
-	ResetClient(client);
+	g_PlayerData[client].Reset();
 
 	char sSteamID[24], sIP[16], sName[64];
 
-	if(!GetClientIP(client, sIP, sizeof(sIP), true) || !GetClientAuthId(client, AuthId_Steam2, sSteamID, sizeof(sSteamID)) || !GetClientName(client, sName, sizeof(sName)))
+	if (!GetClientIP(client, sIP, sizeof(sIP), true) || !GetClientAuthId(client, AuthId_Steam2, sSteamID, sizeof(sSteamID)) || !GetClientName(client, sName, sizeof(sName)))
 		return;
 
 	g_KV.Rewind();
-	if(!g_KV.JumpToKey(sSteamID) && g_KV.JumpToKey(sIP) && g_KV.JumpToKey(sName))
+	if (!g_KV.JumpToKey(sSteamID) && !g_KV.JumpToKey(sIP) && !g_KV.JumpToKey(sName))
 		return;
 
-	g_KV.GetString("ModelZombie", g_sPlayerModelZombie[client], PLATFORM_MAX_PATH);
-	g_KV.GetString("ModelHuman", g_sPlayerModelHuman[client], PLATFORM_MAX_PATH);
+	g_KV.GetString("ModelZombie", g_PlayerData[client].modelZombie, sizeof(PlayerData::modelZombie));
+	g_KV.GetString("ModelHuman", g_PlayerData[client].modelHuman, sizeof(PlayerData::modelHuman));
 
-	if(strlen(g_sPlayerModelZombie[client][0]) != 0)
+	if (strlen(g_PlayerData[client].modelZombie) != 0)
 	{
-		if (!IsModelFile(g_sPlayerModelZombie[client]))
+		if (!IsModelFile(g_PlayerData[client].modelZombie))
 		{
 			LogError("%L Personal Skins (Zombie) is not a model file. (.mdl)", client);
 			return;
 		}
 
-		if (!IsModelPrecached(g_sPlayerModelZombie[client]))
-			PrecacheModel(g_sPlayerModelZombie[client], false);
+		if (!IsModelPrecached(g_PlayerData[client].modelZombie))
+			PrecacheModel(g_PlayerData[client].modelZombie, false);
 
-		g_bHasPersonalSkinsZombie[client] = true;
+		g_PlayerData[client].hasZombie = true;
 	}
 
-	if (strlen(g_sPlayerModelHuman[client][0]) != 0)
+	if (strlen(g_PlayerData[client].modelHuman) != 0)
 	{
-		if (!IsModelFile(g_sPlayerModelHuman[client]))
+		if (!IsModelFile(g_PlayerData[client].modelHuman))
 		{
 			LogError("%L Personal Skins (Human) is not a model file. (.mdl)", client);
 			return;
 		}
 
-		if(!IsModelPrecached(g_sPlayerModelHuman[client]))
-			PrecacheModel(g_sPlayerModelHuman[client], false);
+		if (!IsModelPrecached(g_PlayerData[client].modelHuman))
+			PrecacheModel(g_PlayerData[client].modelHuman, false);
 	
-		g_bHasPersonalSkinsHuman[client] = true;
+		g_PlayerData[client].hasHuman = true;
 	}
 
 	// No personal-skin found for this player - Stop here
-	if (!g_bHasPersonalSkinsHuman[client] && !g_bHasPersonalSkinsZombie[client])
+	if (!g_PlayerData[client].hasHuman && !g_PlayerData[client].hasZombie)
 		return;
 
 	GrantCustom5Flag(client);
@@ -262,13 +264,10 @@ public void OnRebuildAdminCache(AdminCachePart part)
 
 	for (int client = 1; client <= MaxClients; client++)
 	{
-		if (!IsClientInGame(client))
+		if (!IsClientInGame(client) || IsFakeClient(client) || IsClientSourceTV(client))
 			continue;
-		if (IsFakeClient(client))
-			continue;
-		if (IsClientSourceTV(client))
-			continue;
-		if (!g_bHasPersonalSkinsZombie[client] && !g_bHasPersonalSkinsHuman[client])
+
+		if (!g_PlayerData[client].hasHuman && !g_PlayerData[client].hasZombie)
 			continue;
 
 		GrantCustom5Flag(client);
@@ -282,7 +281,9 @@ stock void GrantCustom5Flag(int client)
 	{
 		flags |= ADMFLAG_CUSTOM5;
 		SetUserFlagBits(client, flags);
+		#if defined DEBUG
 		LogMessage("Granted custom5 flag to %L", client);
+		#endif
 	}
 }
 
@@ -292,7 +293,7 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 	LogMessage("ZR_OnClassAttributesApplied: %d | %d", client, classindex);
 	#endif
 
-	if(IsValidClient(client) && IsPlayerAlive(client) && (g_bHasPersonalSkinsZombie[client] || g_bHasPersonalSkinsHuman[client]))
+	if (IsValidClient(client) && IsPlayerAlive(client) && (g_PlayerData[client].hasHuman || g_PlayerData[client].hasZombie))
 	{
 		// Small workaround to prevent #10 - https://github.com/srcdslab/sm-plugin-ZR_PersonalSkins/issues/10
 		int iActiveClass = -1;
@@ -325,17 +326,17 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 					return;
 
 				if (ZR_IsClientZombie(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalZombieClass || iActiveClass == iPersonalZombieClassVIP))
-					Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
+					strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelZombie);
 				else if (ZR_IsClientHuman(client) && ZR_IsValidClassIndex(iActiveClass) && (iActiveClass == iPersonalHumanClass || iActiveClass == iPersonalHumanClassVIP))
-					Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
+					strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelHuman);
 			}
 			case 1:
 			{
 				int team = GetClientTeam(client);
-				if (team == 2 && g_bHasPersonalSkinsZombie[client])
-					Format(modelpath, sizeof(modelpath), g_sPlayerModelZombie[client][0]);
-				else if (team == 3 && g_bHasPersonalSkinsHuman[client])
-					Format(modelpath, sizeof(modelpath), g_sPlayerModelHuman[client][0]);
+				if (team == 2 && g_PlayerData[client].hasZombie)
+					strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelZombie);
+				else if (team == 3 && g_PlayerData[client].hasHuman)
+					strcopy(modelpath, sizeof(modelpath), g_PlayerData[client].modelHuman);
 			}
 			default:
 			{
@@ -384,17 +385,17 @@ public void ZR_OnClassAttributesApplied(int &client, int &classindex)
 
 public void OnClientDisconnect(int client)
 {
-	ResetClient(client);
+	g_PlayerData[client].Reset();
 }
 
 stock void ClearKV(KeyValues kvHandle)
 {
-	if(kvHandle == null)
+	if (kvHandle == null)
 		return;
 
 	kvHandle.Rewind();
 
-	if(!kvHandle.GotoFirstSubKey())
+	if (!kvHandle.GotoFirstSubKey())
 		return;
 
 	do 
@@ -424,12 +425,4 @@ stock void GetExtension(char[] path, char[] buffer, int size)
 	}
 	extpos++;
 	strcopy(buffer, size, path[extpos]);
-}
-
-stock void ResetClient(int client)
-{
-	g_bHasPersonalSkinsZombie[client] = false;
-	g_bHasPersonalSkinsHuman[client] = false;
-	g_sPlayerModelZombie[client] = "";
-	g_sPlayerModelHuman[client] = "";
 }
