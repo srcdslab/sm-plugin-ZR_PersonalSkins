@@ -1,5 +1,25 @@
 "SkinSettings"
 {
+	"Classes"
+	{
+		// you can add up to 5 classes, but please support both teams :)
+		// Do not forget to specify the team attribute
+		// Keys and values are the same used in playerclasses.cfg, like speed, jump_height
+		"zr_personalskins_zombie"
+		{
+			"name"        "Zombie Personal Skin"
+			"description"    "Your Zombie Personal Skin"
+			"team"        "0"
+		}
+
+		"zr_personalskins_human"
+		{
+			"name"        "Human Personal Skin"
+			"description"    "Your Human Personal Skin"
+			"team"        "1"
+		}
+	}
+
 	"STEAM_0:0:1234567890"
 	{
 		"ModelZombie"	"models/player/zh/zh_zombie003.mdl"
@@ -9,10 +29,5 @@
 	{
 		"ModelZombie"	"models/player/zh/zh_corpse002.mdl"
 		"ModelHuman"	"models/player/ct_gign.mdl"
-	}
-	"Name"
-	{
-		"ModelZombie"	"models/player/zh/zh_charple001.mdl"
-		"ModelHuman"	"models/player/ct_urban.mdl"
 	}
 }
