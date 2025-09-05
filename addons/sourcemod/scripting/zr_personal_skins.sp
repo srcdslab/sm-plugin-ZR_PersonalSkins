@@ -81,24 +81,12 @@ public void OnPluginStart()
 	/* Initialize values + Handle plugin reload */
 	g_cvFileSettingsPath.GetString(g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
 	
-	RegConsoleCmd("sm_test3", Cmd); 
-	
 	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_ROOT);
 	RegConsoleCmd("sm_pskin", Command_pSkin);
 	
 	AutoExecConfig(true, "zr_personal_skins", "zombiereloaded");
 }
 
-Action Cmd(int client, int args) {
-	for (int i = 0; i < MAX_PERSONAL_CLASSES; i++) {
-		PrintToChatAll("Found perosnal skin class: %d", g_iPersonalClasses[i]);
-		if (g_iPersonalClasses[i] != -1) {
-			ZR_SetClientClassPersonal(client, g_iPersonalClasses[i], true);
-		}
-	}
-	
-	return Plugin_Handled;
-}
 /* Map End */
 public void OnMapEnd()
 {
