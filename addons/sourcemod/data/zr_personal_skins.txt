@@ -4,8 +4,8 @@
     {
         // You can add up to 64 classes
         // Do not forget to specify the team attribute
-        // Keys and values are the same used in `cstrike/addons/sourcemod/configs/zrplayerclasses.txt`, like speed, jump_height
-        // We still suggest you to handle new personnal classes into `cstrike/addons/sourcemod/configs/zrplayerclasses.txt`
+        // Keys and values are the same used in `cstrike/addons/sourcemod/configs/zr/playerclasses.txt`, like speed, jump_height
+        // We still suggest you to handle new personnal classes into `cstrike/addons/sourcemod/configs/zr/playerclasses.txt`
 
         "human_mappers_2025"
         {
@@ -81,3 +81,4 @@
     }
 
 }
+
