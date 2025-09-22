@@ -289,18 +289,18 @@ public void OnClientPostAdminFilter(int client)
 
 	/* We first want to get the zombie/human personal classes if this player has them */
 	/* Get Zombie Personal Skin Info */
-	if (ValidatePersonalSkin(client, "ModelZombie", "end_zombie", g_PlayerData[client].modelZombie, sizeof(PlayerData::modelZombie)))
+	if (g_cvZombies.BoolValue && ValidatePersonalSkin(client, "ModelZombie", "end_zombie", g_PlayerData[client].modelZombie, sizeof(PlayerData::modelZombie)))
 	{
 		g_PlayerData[client].hasPersonal = true;
 	}
 
-	if (ValidatePersonalSkin(client, "ModelHuman", "end_human", g_PlayerData[client].modelHuman, sizeof(PlayerData::modelHuman)))
+	if (g_cvHumans.BoolValue && ValidatePersonalSkin(client, "ModelHuman", "end_human", g_PlayerData[client].modelHuman, sizeof(PlayerData::modelHuman)))
 	{
 		g_PlayerData[client].hasPersonal = true;
 	}
 
-	bool hasZombie = g_PlayerData[client].modelZombie[0] != '\0';
-	bool hasHuman = g_PlayerData[client].modelHuman[0] != '\0';
+	bool hasZombie = g_cvZombies.BoolValue && g_PlayerData[client].modelZombie[0] != '\0';
+	bool hasHuman = g_cvHumans.BoolValue && g_PlayerData[client].modelHuman[0] != '\0';
 
 	if (!g_hKV.JumpToKey("Classes"))
 		return;
