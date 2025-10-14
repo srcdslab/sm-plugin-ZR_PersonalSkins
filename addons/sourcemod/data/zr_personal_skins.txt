@@ -53,6 +53,16 @@
             "jump_distance"         "1.0"
         }
     }
+	
+    // this section is to specify the personal classes that need a specific model for the team
+    // you should also add classes that are used as personal in this section if class was not created in the section above
+    "zr_personal_classes"
+    {
+    	// "Class Identifier"	"Team Index" (0 = Zombies, 1 = Humans, -1 = Both teams (doesn't need a model))
+    	"Event300"         "1"
+	"Event400"	   "0"
+	"Event500"	   "-1"
+    }
 
     "STEAM_0:1:802859631" // Rushaway
     {
@@ -64,6 +74,9 @@
         "Classes"
         {
             "human_mappers_2025" "1"
+	    "Event300"		 "1"
+	    "Event400"		 "1"
+	    "Event500"		 "1"
         }
     }
 
@@ -77,6 +90,9 @@
         "Classes"
         {
             "human_mappers_2025" "0"
+	    "Event300"		 "1"
+	    "Event400"		 "0"
+	    "Event500"		 "0"
         }
     }
 
