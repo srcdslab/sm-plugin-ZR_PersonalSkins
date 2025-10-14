@@ -121,52 +121,30 @@ public void ZR_OnClassLoaded()
 	
 	g_arClasses = new ArrayList(ByteCountToCells(256));
 	
-	if (!g_hKV.JumpToKey("Classes"))
+	if (g_hKV.JumpToKey("Classes") && g_hKV.GotoFirstSubKey())
 	{
-		delete g_hKV;
-		delete g_arClasses;
-		SetFailState("[ZR-Personal Skins] Could not find 'Classes' section in config file.");
-		return;
-	}
-
-	if (!g_hKV.GotoFirstSubKey())
-	{
-		delete g_hKV;
-		delete g_arClasses;
-		SetFailState("[ZR-Personal Skins] Could not find any class config");
-		return;
-	}
-
-	do
-	{
-		char identifier[sizeof(ClassData::identifier)];
-		g_hKV.GetSectionName(identifier, sizeof(identifier));
-
-		int index = ZR_GetClassByIdentifier(identifier, ZR_CLASS_CACHE_ORIGINAL);
-		// class was not found in playerclasses.cfg, let the plugin create the class
-		if (index == -1)
+		do
 		{
-			g_hKV.SetString("personal", "yes");
-			index = ZR_RegClassIndex(g_hKV);
+			char identifier[sizeof(ClassData::identifier)];
+			g_hKV.GetSectionName(identifier, sizeof(identifier));
+	
+			int index = ZR_GetClassByIdentifier(identifier, ZR_CLASS_CACHE_ORIGINAL);
+			// class was not found in playerclasses.cfg, let the plugin create the class
 			if (index == -1)
-				continue;
-		}
-
-		ClassData class;
-		class.index = index;
-		strcopy(class.identifier, sizeof(identifier), identifier);
-		class.team = -1;
-		g_arClasses.PushArray(class);
-
-	} while (g_hKV.GotoNextKey());
-
-	int arrayLength = g_arClasses.Length;
-	if (!arrayLength)
-	{
-		LogError("[ZR-Personal Skins] Could not find any class to create");
-		delete g_arClasses;
-		delete g_hKV;
-		return;
+			{
+				g_hKV.SetString("personal", "yes");
+				index = ZR_RegClassIndex(g_hKV);
+				if (index == -1)
+					continue;
+			}
+	
+			ClassData class;
+			class.index = index;
+			strcopy(class.identifier, sizeof(identifier), identifier);
+			class.team = -1;
+			g_arClasses.PushArray(class);
+	
+		} while (g_hKV.GotoNextKey());
 	}
 
 	g_hKV.Rewind();
@@ -226,6 +204,14 @@ public void ZR_OnClassLoaded()
 			g_arClasses.PushArray(class, sizeof(class));
 		}
 	} while (g_hKV.GotoNextKey(.keyOnly = false));
+	
+	if (!g_arClasses.Length)
+	{
+		delete g_arClasses;
+		delete g_hKV;
+		SetFailState("[ZR-Personal Skins] Could not find any class to create");
+		return;
+	}
 }
 
 /* Read Downloadlist file */
@@ -314,20 +300,21 @@ public void OnClientPostAdminFilter(int client)
 	{
 		ClassData class;
 		g_arClasses.GetArray(i, class, sizeof(class));
-
-		char value[2];
-		g_hKV.GetString(class.identifier, value, sizeof(value));
-
-		bool canUse = (value[0] && StringToInt(value) > 0);
-		if (!canUse)
-			continue;
-
+		
 		if (class.needsModel)
 		{
 			if (class.team == ZR_CLASS_TEAM_ZOMBIES && !hasZombie)
 				continue;
 
 			if (class.team == ZR_CLASS_TEAM_HUMANS && !hasHuman)
+				continue;
+		}
+		else
+		{
+			char value[2];
+			g_hKV.GetString(class.identifier, value, sizeof(value));
+
+			if (!(value[0] && StringToInt(value) > 0))
 				continue;
 		}
 
