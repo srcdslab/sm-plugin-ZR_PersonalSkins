@@ -120,8 +120,8 @@ public void ZR_OnClassLoaded()
 
 	if (!g_hKV.ImportFromFile(g_sFileSettingsPath))
 	{
-		SetFailState("[ZR-Personal Skins] File '%s' not found!", g_sFileSettingsPath);
 		delete g_hKV;
+		SetFailState("[ZR-Personal Skins] File '%s' not found!", g_sFileSettingsPath);
 		return;
 	}
 
@@ -129,17 +129,17 @@ public void ZR_OnClassLoaded()
 
 	if (!g_hKV.JumpToKey("Classes"))
 	{
-		SetFailState("[ZR-Personal Skins] Could not find 'Classes' section in config file.");
 		delete g_hKV;
 		delete g_arClasses;
+		SetFailState("[ZR-Personal Skins] Could not find 'Classes' section in config file.");
 		return;
 	}
 
 	if (!g_hKV.GotoFirstSubKey())
 	{
-		SetFailState("[ZR-Personal Skins] Could not find any class config");
 		delete g_hKV;
 		delete g_arClasses;
+		SetFailState("[ZR-Personal Skins] Could not find any class config");
 		return;
 	}
 
