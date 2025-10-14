@@ -10,19 +10,19 @@
 
 #define MAX_PERSONAL_CLASSES 	64
 
-/* CVARS */
+// ConVars
 ConVar g_cvZombies;
 ConVar g_cvHumans;
 ConVar g_cvFileSettingsPath;
 ConVar g_cvDownListPath;
 
-/* Classes Array */
+// Classes management
 ArrayList g_arClasses;
 
 enum struct ClassData {
-	int index; // the class index zr gives
+	int index;
 	char identifier[64];
-	bool needsModel; // this basically means if this class has team 0/1 index
+	bool needsModel;
 	int team;
 }
 
@@ -48,10 +48,10 @@ enum struct PlayerData
 
 PlayerData g_PlayerData[MAXPLAYERS + 1];
 
-/* Strings */
+// File paths
 char g_sFileSettingsPath[PLATFORM_MAX_PATH];
 
-/* Keyvalues */
+// Data storage
 KeyValues g_hKV;
 
 public Plugin myinfo =
@@ -71,17 +71,15 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
-	/* Paths Configs */
+	// Configuration paths
 	g_cvDownListPath 		= CreateConVar("zr_personalskins_downloadslist", "addons/sourcemod/configs/zr_personalskins_downloadslist.txt", "Config path of the download list", FCVAR_NONE);
 	g_cvFileSettingsPath 	= CreateConVar("zr_personalskins_skinslist", "addons/sourcemod/data/zr_personal_skins.txt", "Config path of the skin settings", FCVAR_NONE);
 
-	/* Enable - Disable */
+	// Feature toggles
 	g_cvZombies = CreateConVar("zr_personalskins_zombies_enable", "1", "Enable personal skin pickup for Zombies", _, true, 0.0, true, 1.0);
 	g_cvHumans 	= CreateConVar("zr_personalskins_humans_enable", "1", "Enable personal skin pickup for Humans", _, true, 0.0, true, 1.0);
 
 	g_cvFileSettingsPath.AddChangeHook(OnConVarChange);
-
-	/* Initialize values + Handle plugin reload */
 	g_cvFileSettingsPath.GetString(g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
 
 	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_ROOT);
@@ -90,21 +88,18 @@ public void OnPluginStart()
 	AutoExecConfig(true, "zr_personal_skins", "zombiereloaded");
 }
 
-/* Map End */
 public void OnMapEnd()
 {
-	// Restore cvar to 1, this is helpful when a specified team (or both) personal skin is/are disabled during a map, somehow cvars stay with the same value
+	// Reset cvars on map change
 	g_cvZombies.IntValue = 1;
 	g_cvHumans.IntValue = 1;
 }
 
-/* Client Disconnect */
 public void OnClientDisconnect(int client)
 {
 	g_PlayerData[client].Reset();
 }
 
-/* Read the data file */
 public void ZR_OnClassLoaded()
 {
 	delete g_arClasses;
@@ -118,45 +113,47 @@ public void ZR_OnClassLoaded()
 		SetFailState("[ZR-Personal Skins] File '%s' not found!", g_sFileSettingsPath);
 		return;
 	}
-	
+
 	g_arClasses = new ArrayList(ByteCountToCells(256));
-	
+
 	if (g_hKV.JumpToKey("Classes") && g_hKV.GotoFirstSubKey())
 	{
 		do
 		{
 			char identifier[sizeof(ClassData::identifier)];
 			g_hKV.GetSectionName(identifier, sizeof(identifier));
-	
-			int index = ZR_GetClassByIdentifier(identifier, ZR_CLASS_CACHE_ORIGINAL);
-			// class was not found in playerclasses.cfg, let the plugin create the class
+
+		int index = ZR_GetClassByIdentifier(identifier, ZR_CLASS_CACHE_ORIGINAL);
+		if (index == -1)
+		{
+			g_hKV.SetString("personal", "yes");
+			index = ZR_RegClassIndex(g_hKV);
 			if (index == -1)
 			{
-				g_hKV.SetString("personal", "yes");
-				index = ZR_RegClassIndex(g_hKV);
-				if (index == -1)
-					continue;
+				LogError("[ZR-Personal Skins] Failed to register class: %s", identifier);
+				continue;
 			}
-	
+		}
+
 			ClassData class;
 			class.index = index;
 			strcopy(class.identifier, sizeof(identifier), identifier);
 			class.team = -1;
 			g_arClasses.PushArray(class);
-	
+
 		} while (g_hKV.GotoNextKey());
 	}
 
 	g_hKV.Rewind();
-	
-	if (!g_hKV.JumpToKey("zr_personal_classes")) 
+
+	if (!g_hKV.JumpToKey("zr_personal_classes"))
 	{
 		delete g_hKV;
 		delete g_arClasses;
 		SetFailState("[ZR-Personal Skins] Could not find section \"zr_personal_classes\" in data file.");
 		return;
 	}
-	
+
 	if (!g_hKV.GotoFirstSubKey(.keyOnly=false))
 	{
 		delete g_hKV;
@@ -164,20 +161,26 @@ public void ZR_OnClassLoaded()
 		SetFailState("[ZR-Personal Skins] Could not find any class in personal classes section in data file.");
 		return;
 	}
-	
-	do 
+
+	do
 	{
 		char classIdentifier[32];
 		g_hKV.GetSectionName(classIdentifier, sizeof(classIdentifier));
-		
-		int teamIndex = g_hKV.GetNum(NULL_STRING, -1); // team = -1 means that the skin can be applied to both teams
+
+		int teamIndex = g_hKV.GetNum(NULL_STRING, -1); // -1: force class model, 0/1: use personal model (zombie/human)
 		if (teamIndex != -1 && teamIndex != ZR_CLASS_TEAM_ZOMBIES && teamIndex != ZR_CLASS_TEAM_HUMANS)
+		{
+			LogError("[ZR-Personal Skins] Skipping class %s - invalid team index: %d", classIdentifier, teamIndex);
 			continue;
-		
+		}
+
 		int classIndex = ZR_GetClassByIdentifier(classIdentifier, ZR_CLASS_CACHE_ORIGINAL);
 		if (classIndex == -1)
+		{
+			LogError("[ZR-Personal Skins] Class %s not found in ZR class cache", classIdentifier);
 			continue;
-		
+		}
+
 		bool needsModel = teamIndex != -1;
 		bool found = false;
 		for (int i = 0; i < g_arClasses.Length; i++)
@@ -193,7 +196,7 @@ public void ZR_OnClassLoaded()
 				break;
 			}
 		}
-		
+
 		if (!found)
 		{
 			ClassData class;
@@ -204,7 +207,7 @@ public void ZR_OnClassLoaded()
 			g_arClasses.PushArray(class, sizeof(class));
 		}
 	} while (g_hKV.GotoNextKey(.keyOnly = false));
-	
+
 	if (!g_arClasses.Length)
 	{
 		delete g_arClasses;
@@ -214,7 +217,6 @@ public void ZR_OnClassLoaded()
 	}
 }
 
-/* Read Downloadlist file */
 public void OnConfigsExecuted()
 {
 	char downloadPath[PLATFORM_MAX_PATH];
@@ -229,13 +231,12 @@ public void OnConfigsExecuted()
 	File_ReadDownloadList(downloadPath);
 }
 
-/* Update settings path when it is changed */
 public void OnConVarChange(ConVar convar, const char[] oldValue, const char[] newValue)
 {
 	ZR_OnClassLoaded();
 }
 
-/* Commands */
+// Commands
 public Action Command_Reload(int client, int args)
 {
 	if (g_hKV == null)
@@ -261,8 +262,7 @@ public Action Command_pSkin(int client, int args)
 	return Plugin_Handled;
 }
 
-// We use this instead of PostAdminCheck, bcs ZombieReloaded check class on post.
-// Need to give the groups used as filter in playerclass before ZR check if user can access to it.
+// Grant class access before ZR validates permissions
 public void OnClientPostAdminFilter(int client)
 {
 	if (g_hKV == null || g_arClasses == null || IsFakeClient(client))
@@ -278,8 +278,7 @@ public void OnClientPostAdminFilter(int client)
 	if (!g_hKV.JumpToKey(steamID) && !g_hKV.JumpToKey(ip))
 		return;
 
-	/* We first want to get the zombie/human personal classes if this player has them */
-	/* Get Zombie Personal Skin Info */
+	// Validate personal skins
 	if (g_cvZombies.BoolValue && ValidatePersonalSkin("ModelZombie", "end_zombie", g_PlayerData[client].modelZombie, sizeof(PlayerData::modelZombie)))
 	{
 		g_PlayerData[client].hasPersonal = true;
@@ -300,7 +299,7 @@ public void OnClientPostAdminFilter(int client)
 	{
 		ClassData class;
 		g_arClasses.GetArray(i, class, sizeof(class));
-		
+
 		if (class.needsModel)
 		{
 			if (class.team == ZR_CLASS_TEAM_ZOMBIES && !hasZombie)
@@ -324,7 +323,7 @@ public void OnClientPostAdminFilter(int client)
 	}
 }
 
-/* To validate if the player can use the personal skin or not */
+// Validate personal skin availability and expiration
 bool ValidatePersonalSkin(const char[] modelKey, const char[] endKey, char[] model, int maxlen)
 {
 	g_hKV.GetString(modelKey, model, maxlen);
@@ -336,21 +335,15 @@ bool ValidatePersonalSkin(const char[] modelKey, const char[] endKey, char[] mod
 		if (endTime != 0)
 		{
 			if (endTime > GetTime())
-			{
 				has = true;
-			}
 		}
 		else
-		{
 			has = true;
-		}
 
 		if (has)
 		{
 			if (!IsModelFile(model))
-			{
 				has = false;
-			}
 
 			if (has && !IsModelPrecached(model))
 				PrecacheModel(model, false);
@@ -372,31 +365,43 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 
 	bool hasZombie = g_cvZombies.BoolValue && g_PlayerData[client].modelZombie[0] != '\0';
 	bool hasHuman = g_cvHumans.BoolValue && g_PlayerData[client].modelHuman[0] != '\0';
-	
+
+	ClassData targetClass;
 	bool found = false;
+
 	for (int i = 0; i < g_arClasses.Length; i++)
 	{
 		ClassData class;
 		g_arClasses.GetArray(i, class, sizeof(class));
-		if (class.needsModel && class.index == classIndex)
+		if (class.index == classIndex)
 		{
-			if (hasZombie && class.team == ZR_CLASS_TEAM_ZOMBIES)
-				found = true;
-			
-			if (hasHuman && class.team == ZR_CLASS_TEAM_HUMANS)
-				found = true;
-				
+			targetClass = class;
+			found = true;
 			break;
 		}
 	}
-	
+
 	if (!found)
 		return;
-		
+
+	// Skip if class doesn't need personal model
+	if (!targetClass.needsModel)
+		return;
+
+	// Check if player has required personal model for this class
+	bool hasRequiredModel = false;
+	if (targetClass.team == ZR_CLASS_TEAM_ZOMBIES && hasZombie)
+		hasRequiredModel = true;
+	else if (targetClass.team == ZR_CLASS_TEAM_HUMANS && hasHuman)
+		hasRequiredModel = true;
+
+	if (!hasRequiredModel)
+		return;
+
 	int team = ZR_GetClassTeamID(classIndex, ZR_CLASS_CACHE_ORIGINAL);
-	
+
 	char thisModel[PLATFORM_MAX_PATH];
-	switch(team)
+	switch (team)
 	{
 		case ZR_CLASS_TEAM_ZOMBIES: strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelZombie);
 		case ZR_CLASS_TEAM_HUMANS: strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelHuman);
