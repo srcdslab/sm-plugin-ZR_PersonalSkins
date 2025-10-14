@@ -22,7 +22,8 @@ ArrayList g_arClasses;
 enum struct ClassData {
 	int index; // the class index zr gives
 	char identifier[64];
-	bool needsModel; // this basically means if this class is the one specified for "ZombieClass" or "HumanClass"
+	bool needsModel; // this basically means if this class has team 0/1 index
+	int team;
 }
 
 enum struct PlayerData
@@ -53,16 +54,12 @@ char g_sFileSettingsPath[PLATFORM_MAX_PATH];
 /* Keyvalues */
 KeyValues g_hKV;
 
-/* Personal Classes Indexes */
-int g_iPersonalZombieClass = -1;
-int g_iPersonalHumanClass = -1;
-
 public Plugin myinfo =
 {
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "3.2.1",
+	version = "3.2.2",
 	url = ""
 };
 
@@ -110,9 +107,6 @@ public void OnClientDisconnect(int client)
 /* Read the data file */
 public void ZR_OnClassLoaded()
 {
-	g_iPersonalZombieClass = -1;
-	g_iPersonalHumanClass = -1;
-
 	delete g_arClasses;
 
 	delete g_hKV;
@@ -124,9 +118,9 @@ public void ZR_OnClassLoaded()
 		SetFailState("[ZR-Personal Skins] File '%s' not found!", g_sFileSettingsPath);
 		return;
 	}
-
+	
 	g_arClasses = new ArrayList(ByteCountToCells(256));
-
+	
 	if (!g_hKV.JumpToKey("Classes"))
 	{
 		delete g_hKV;
@@ -161,6 +155,7 @@ public void ZR_OnClassLoaded()
 		ClassData class;
 		class.index = index;
 		strcopy(class.identifier, sizeof(identifier), identifier);
+		class.team = -1;
 		g_arClasses.PushArray(class);
 
 	} while (g_hKV.GotoNextKey());
@@ -175,52 +170,62 @@ public void ZR_OnClassLoaded()
 	}
 
 	g_hKV.Rewind();
-
-	char zombieClass[64];
-	g_hKV.GetString("ZombieClass", zombieClass, sizeof(zombieClass));
-
-	if (!zombieClass[0])
+	
+	if (!g_hKV.JumpToKey("zr_personal_classes")) 
 	{
-		LogError("[ZR-Personal Skins] Could not find the identifier for zombie personal class `ZombieClass`.");
-		delete g_arClasses;
 		delete g_hKV;
+		delete g_arClasses;
+		SetFailState("[ZR-Personal Skins] Could not find section \"zr_personal_classes\" in data file.");
 		return;
 	}
-
-	char humanClass[64];
-	g_hKV.GetString("HumanClass", humanClass, sizeof(humanClass));
-
-	if (!humanClass[0])
+	
+	if (!g_hKV.GotoFirstSubKey(.keyOnly=false))
 	{
-		LogError("[ZR-Personal Skins] Could not find the identifier for zombie personal class `HumanClass`.");
-		delete g_arClasses;
 		delete g_hKV;
+		delete g_arClasses;
+		SetFailState("[ZR-Personal Skins] Could not find any class in personal classes section in data file.");
 		return;
 	}
-
-	for (int i = 0; i < arrayLength; i++)
+	
+	do 
 	{
-		ClassData class;
-		g_arClasses.GetArray(i, class, sizeof(class));
-
-		if (g_iPersonalHumanClass != -1 && g_iPersonalZombieClass != -1)
-			break;
-
-		if (strcmp(class.identifier, zombieClass) == 0)
-		{
-			class.needsModel = true;
-			g_iPersonalZombieClass = class.index;
-			g_arClasses.SetArray(i, class, sizeof(class));
+		char classIdentifier[32];
+		g_hKV.GetSectionName(classIdentifier, sizeof(classIdentifier));
+		
+		int teamIndex = g_hKV.GetNum(NULL_STRING, -1); // team = -1 means that the skin can be applied to both teams
+		if (teamIndex != -1 && teamIndex != ZR_CLASS_TEAM_ZOMBIES && teamIndex != ZR_CLASS_TEAM_HUMANS)
 			continue;
-		}
-
-		if (strcmp(class.identifier, humanClass) == 0)
+		
+		int classIndex = ZR_GetClassByIdentifier(classIdentifier, ZR_CLASS_CACHE_ORIGINAL);
+		if (classIndex == -1)
+			continue;
+		
+		bool needsModel = teamIndex != -1;
+		bool found = false;
+		for (int i = 0; i < g_arClasses.Length; i++)
 		{
-			class.needsModel = true;
-			g_iPersonalHumanClass = class.index;
-			g_arClasses.SetArray(i, class, sizeof(class));
+			ClassData class;
+			g_arClasses.GetArray(i, class, sizeof(class));
+			if (class.index == classIndex)
+			{
+				found = true;
+				class.needsModel = needsModel;
+				class.team = teamIndex;
+				g_arClasses.SetArray(i, class, sizeof(class));
+				break;
+			}
 		}
-	}
+		
+		if (!found)
+		{
+			ClassData class;
+			class.index = classIndex;
+			class.needsModel = needsModel;
+			strcopy(class.identifier, sizeof(ClassData::identifier), classIdentifier);
+			class.team = teamIndex;
+			g_arClasses.PushArray(class, sizeof(class));
+		}
+	} while (g_hKV.GotoNextKey(.keyOnly = false));
 }
 
 /* Read Downloadlist file */
@@ -319,11 +324,10 @@ public void OnClientPostAdminFilter(int client)
 
 		if (class.needsModel)
 		{
-			int team = ZR_GetClassTeamID(class.index, ZR_CLASS_CACHE_ORIGINAL);
-			if (team == ZR_CLASS_TEAM_ZOMBIES && !hasZombie)
+			if (class.team == ZR_CLASS_TEAM_ZOMBIES && !hasZombie)
 				continue;
 
-			if (team == ZR_CLASS_TEAM_HUMANS && !hasHuman)
+			if (class.team == ZR_CLASS_TEAM_HUMANS && !hasHuman)
 				continue;
 		}
 
@@ -376,20 +380,34 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 	if (!g_hKV)
 		return;
 
-	if (!IsValidClient(client) || !IsPlayerAlive(client) || !g_PlayerData[client].hasPersonal || (classIndex != g_iPersonalZombieClass && classIndex != g_iPersonalHumanClass))
+	if (!g_PlayerData[client].hasPersonal || !IsValidClient(client) || !IsPlayerAlive(client))
 		return;
 
-	bool hasZombie = g_PlayerData[client].modelZombie[0] != '\0';
-	bool hasHuman = g_PlayerData[client].modelHuman[0] != '\0';
-
-	if (classIndex == g_iPersonalZombieClass && !hasZombie)
+	bool hasZombie = g_cvZombies.BoolValue && g_PlayerData[client].modelZombie[0] != '\0';
+	bool hasHuman = g_cvHumans.BoolValue && g_PlayerData[client].modelHuman[0] != '\0';
+	
+	bool found = false;
+	for (int i = 0; i < g_arClasses.Length; i++)
+	{
+		ClassData class;
+		g_arClasses.GetArray(i, class, sizeof(class));
+		if (class.needsModel && class.index == classIndex)
+		{
+			if (hasZombie && class.team == ZR_CLASS_TEAM_ZOMBIES)
+				found = true;
+			
+			if (hasHuman && class.team == ZR_CLASS_TEAM_HUMANS)
+				found = true;
+				
+			break;
+		}
+	}
+	
+	if (!found)
 		return;
-
-	if (classIndex == g_iPersonalHumanClass && !hasHuman)
-		return;
-
+		
 	int team = ZR_GetClassTeamID(classIndex, ZR_CLASS_CACHE_ORIGINAL);
-
+	
 	char thisModel[PLATFORM_MAX_PATH];
 	switch(team)
 	{
