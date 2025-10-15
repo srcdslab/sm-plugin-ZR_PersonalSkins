@@ -1,5 +1,14 @@
 "SkinSettings"
 {
+
+	"zr_personal_classes"
+    {
+        // This part is to register as personal access some class from playerclasses.txt
+        // Integer value is the team, same as ZR, but -1 = force to apply model from class index config
+        "Personal-Skin-Zombie"      "0"
+        "Personal-Skin-Human"       "1"
+    }
+
     "Classes"
     {
         // You can add up to 64 classes
@@ -53,16 +62,6 @@
             "jump_distance"         "1.0"
         }
     }
-	
-    // this section is to specify the personal classes that need a specific model for the team
-    // you should also add classes that are used as personal in this section if class was not created in the section above
-    "zr_personal_classes"
-    {
-    	// "Class Identifier"	"Team Index" (0 = Zombies, 1 = Humans, -1 = Both teams (doesn't need a model))
-    	"Event300"     "1"
-        "Event400"	   "0"
-        "Event500"	   "-1"
-    }
 
     "STEAM_0:1:802859631" // Rushaway
     {
@@ -98,5 +97,6 @@
     }
 
 }
+
 
 
