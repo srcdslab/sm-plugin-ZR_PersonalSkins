@@ -1,18 +1,102 @@
 "SkinSettings"
 {
-	"STEAM_0:0:1234567890"
-	{
-		"ModelZombie"	"models/player/zh/zh_zombie003.mdl"
-		"ModelHuman"	"models/player/ct_sas.mdl"
-	}
-	"127.0.0.1"
-	{
-		"ModelZombie"	"models/player/zh/zh_corpse002.mdl"
-		"ModelHuman"	"models/player/ct_gign.mdl"
-	}
-	"Name"
-	{
-		"ModelZombie"	"models/player/zh/zh_charple001.mdl"
-		"ModelHuman"	"models/player/ct_urban.mdl"
-	}
+
+	"zr_personal_classes"
+    {
+        // This part is to register as personal access some class from playerclasses.txt
+        // Integer value is the team, same as ZR, but -1 = force to apply model from class index config
+        "Personal-Skin-Zombie"      "0"
+        "Personal-Skin-Human"       "1"
+    }
+
+    "Classes"
+    {
+        // You can add up to 64 classes
+        // Do not forget to specify the team attribute
+        // Keys and values are the same used in `cstrike/addons/sourcemod/configs/zr/playerclasses.txt`, like speed, jump_height
+        // We still suggest you to handle new personnal classes into `cstrike/addons/sourcemod/configs/zr/playerclasses.txt`
+
+        "human_mappers_2025"
+        {
+            // General
+            "enabled"               "yes"
+            "team"                  "1"
+            "team_default"          "yes"
+            "flags"                 "0"
+            "group"                 ""
+            "personal"              "yes"
+
+            "name"                  "Mappers 2025"
+            "description"           "Mappers 2025 with default settings"
+
+            // Model
+            "model_path"            "default"
+            "alpha_initial"         "255"
+            "alpha_damaged"         "255"
+            "alpha_damage"          "500"
+
+            // Hud
+            "overlay_path"          ""
+            "nvgs"                  "no"
+            "fov"                   "90"
+
+            // Effects
+            "has_napalm"            "yes"
+            "napalm_time"           "0.0"
+
+            // Player behavior
+            "immunity_mode"         "none"
+            "immunity_amount"       "0"
+            "immunity_cooldown"     "0.0"
+            "no_fall_damage"        "yes"
+
+            "health"                "100"
+            "health_regen_interval" "0.0"
+            "health_regen_amount"   "0"
+            "health_infect_gain"    "0"
+            "kill_bonus"            "1"
+
+            "speed"                 "300"
+            "knockback"             "0"
+            "jump_height"           "1.0"
+            "jump_distance"         "1.0"
+        }
+    }
+
+    "STEAM_0:1:802859631" // Rushaway
+    {
+        "ModelHuman"       "models/player/gkuo88/marierosefx.mdl"
+        "ModelZombie"      "models/player/lextalionis/zombie_hc/t_arctic.mdl"
+        "end_zombie"       "0" // Permanent
+        "end_human"        "1884409599" // Timestamp value
+
+        "Classes"
+        {
+            // it's not needed to add the personal classes (needs model) here
+            "human_mappers_2025" "1"
+	        "Event300"		 "1"
+	        "Event400"		 "1"
+	        "Event500"		 "1"
+        }
+    }
+
+    "127.0.0.1" // Player IP
+    {
+        "ModelZombie"      "models/player/zh/zh_corpse002.mdl"
+        "ModelHuman"       "models/player/ct_gign.mdl"
+        "end_zombie"       "" // No end date applied
+        "end_human"        "1884409599" // Timestamp value
+
+        "Classes"
+        {
+            "human_mappers_2025" "0"
+	        "Event300"		 "1"
+	        "Event400"		 "0"
+	        "Event500"		 "0"
+        }
+    }
+
 }
+
+
+

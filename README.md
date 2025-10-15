@@ -1,11 +1,11 @@
 sm-plugin-ZR_PersonalSkins
 > [!IMPORTANT]
-> This version is using SourceMod Custom Flag 5 and playerclasses (!zclass) to access to Personal Skin
+> Upgrading to 3.x: You need to update your file structure in `addons/sourcemod/data/zr_personal_skins.txt`
 
 > [!TIP]
 > You can use multiples flags like "os" (Custom 1 && Custom 5)
 
-Exemple to use in `playerclasses.txt`
+Exemple to use in `addons/sourcemod/configs/zr/playerclasses.txt`
 ```
 "personalskin_zombie"
 {
@@ -15,7 +15,8 @@ Exemple to use in `playerclasses.txt`
     "team_default"          "no"
     "flags"                 "0"
     "group"                 ""
-    "sm_flags"              "s" // (Custom5)
+    "sm_flags"              ""
+    "personal"              "yes"
     
     "name"                  "Personal Skin"
     "description"           "Your private skin"
