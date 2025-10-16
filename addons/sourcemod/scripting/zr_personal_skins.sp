@@ -421,6 +421,9 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 			return;
 	}
 
+	if (thisModel[0] == '\0')
+		return;
+
 	SetEntityModel(client, thisModel);
 }
 
