@@ -59,7 +59,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "3.0.0",
+	version = "3.0.1",
 	url = ""
 };
 
@@ -363,8 +363,8 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 	if (!g_PlayerData[client].hasPersonal || !IsValidClient(client) || !IsPlayerAlive(client))
 		return;
 
-	bool hasZombie = g_cvZombies.BoolValue && g_PlayerData[client].modelZombie[0] != '\0';
-	bool hasHuman = g_cvHumans.BoolValue && g_PlayerData[client].modelHuman[0] != '\0';
+	bool hasZombie = g_PlayerData[client].modelZombie[0] != '\0';
+	bool hasHuman = g_PlayerData[client].modelHuman[0] != '\0';
 
 	ClassData targetClass;
 	bool found = false;
@@ -403,8 +403,22 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 	char thisModel[PLATFORM_MAX_PATH];
 	switch (team)
 	{
-		case ZR_CLASS_TEAM_ZOMBIES: strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelZombie);
-		case ZR_CLASS_TEAM_HUMANS: strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelHuman);
+		case ZR_CLASS_TEAM_ZOMBIES:
+		{
+			if (!g_cvZombies.BoolValue)
+				return;
+			
+			strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelZombie);
+		}
+		case ZR_CLASS_TEAM_HUMANS:
+		{
+			if (!g_cvHumans.BoolValue)
+				return;
+
+			strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelHuman);
+		}
+		default:
+			return;
 	}
 
 	SetEntityModel(client, thisModel);
