@@ -15,6 +15,7 @@ ConVar g_cvZombies;
 ConVar g_cvHumans;
 ConVar g_cvFileSettingsPath;
 ConVar g_cvDownListPath;
+ConVar g_cvOverrideMethod;
 
 // Classes management
 ArrayList g_arClasses;
@@ -78,12 +79,15 @@ public void OnPluginStart()
 	// Feature toggles
 	g_cvZombies = CreateConVar("zr_personalskins_zombies_enable", "1", "Enable personal skin pickup for Zombies", _, true, 0.0, true, 1.0);
 	g_cvHumans 	= CreateConVar("zr_personalskins_humans_enable", "1", "Enable personal skin pickup for Humans", _, true, 0.0, true, 1.0);
+	g_cvOverrideMethod = CreateConVar("zr_personalskins_override_method", "1", "Override method: 0=class attributes only, 1=spawn/infection events (overrides shop skins)", _, true, 0.0, true, 1.0);
 
 	g_cvFileSettingsPath.AddChangeHook(OnConVarChange);
 	g_cvFileSettingsPath.GetString(g_sFileSettingsPath, sizeof(g_sFileSettingsPath));
 
 	RegAdminCmd("zr_pskins_reload", Command_Reload, ADMFLAG_ROOT);
 	RegConsoleCmd("sm_pskin", Command_pSkin);
+
+	HookEvent("player_spawn", Event_PlayerSpawn);
 
 	AutoExecConfig(true, "zr_personal_skins", "zombiereloaded");
 }
@@ -98,6 +102,36 @@ public void OnMapEnd()
 public void OnClientDisconnect(int client)
 {
 	g_PlayerData[client].Reset();
+}
+
+public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
+{
+	if (!g_cvOverrideMethod.BoolValue)
+		return;
+
+	int client = GetClientOfUserId(event.GetInt("userid"));
+	if (client <= 0 || !IsClientInGame(client))
+		return;
+
+	CreateTimer(0.6, Timer_ApplyPersonalSkin, GetClientUserId(client));
+}
+
+public void ZR_OnClientInfected(int client, int attacker, bool motherInfect, bool respawnOverride, bool respawn)
+{
+	if (!g_cvOverrideMethod.BoolValue)
+		return;
+
+	CreateTimer(0.6, Timer_ApplyPersonalSkin, GetClientUserId(client));
+}
+
+public Action Timer_ApplyPersonalSkin(Handle timer, int userid)
+{
+	int client = GetClientOfUserId(userid);
+	if (client <= 0 || !IsClientInGame(client) || !IsPlayerAlive(client))
+		return Plugin_Stop;
+
+	ApplyPersonalSkin(client);
+	return Plugin_Stop;
 }
 
 public void ZR_OnClassLoaded()
@@ -360,11 +394,49 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 	if (!g_hKV)
 		return;
 
+	// If override method is enabled, handle skin application via events instead
+	if (g_cvOverrideMethod.BoolValue)
+		return;
+
 	if (!g_PlayerData[client].hasPersonal || !IsValidClient(client) || !IsPlayerAlive(client))
+		return;
+
+	ApplyPersonalSkin(client, classIndex);
+}
+
+void ApplyPersonalSkin(int client, int classIndex = -1)
+{
+	if (!g_hKV || !g_PlayerData[client].hasPersonal || !IsValidClient(client) || !IsPlayerAlive(client))
 		return;
 
 	bool hasZombie = g_PlayerData[client].modelZombie[0] != '\0';
 	bool hasHuman = g_PlayerData[client].modelHuman[0] != '\0';
+
+	// If override method is enabled, apply skin based on current team
+	if (g_cvOverrideMethod.BoolValue)
+	{
+		char thisModel[PLATFORM_MAX_PATH];
+		if (ZR_IsClientZombie(client))
+		{
+			if (!g_cvZombies.BoolValue || !hasZombie)
+				return;
+			strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelZombie);
+		}
+		else
+		{
+			if (!g_cvHumans.BoolValue || !hasHuman)
+				return;
+			strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelHuman);
+		}
+
+		if (thisModel[0] != '\0')
+			SetEntityModel(client, thisModel);
+		return;
+	}
+
+	// Original class-based logic
+	if (classIndex == -1)
+		return;
 
 	ClassData targetClass;
 	bool found = false;
