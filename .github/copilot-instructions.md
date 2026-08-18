@@ -9,7 +9,7 @@ This repository contains a **SourceMod plugin** for **Zombie Reloaded** that pro
 - **Platform**: SourceMod 1.11.0+ (latest stable recommended)
 - **Target Game**: Counter-Strike: Source / Counter-Strike: Global Offensive
 - **Plugin Type**: Zombie Reloaded extension
-- **Build System**: SourceKnight (configured in `sourceknight.yaml`)
+- **Build System**: Native GitHub Actions (configured in `.github/workflows/ci.yml`)
 
 ## Architecture & Core Components
 
@@ -24,7 +24,7 @@ This repository contains a **SourceMod plugin** for **Zombie Reloaded** that pro
 - `addons/sourcemod/configs/zr_personalskins_downloadslist.txt` - FastDL file list
 - AutoExecConfig generates: `cfg/zombiereloaded/zr_personal_skins.cfg`
 
-### Key Dependencies (managed by SourceKnight)
+### Key Dependencies (managed by GitHub Actions CI)
 - `sourcemod` (1.11.0-git6934 or newer)
 - `multicolors` - Enhanced chat color support
 - `zombiereloaded` - Required base mod
@@ -76,21 +76,21 @@ Database.Query(MyCallback, "SELECT * FROM table WHERE id = %d", clientId);
 
 ## Build System & Workflow
 
-### SourceKnight Build System
+### GitHub Actions Build System
 ```yaml
-# sourceknight.yaml configures:
-# - Dependencies (SourceMod, includes)
-# - Build targets
-# - Output paths
+# .github/workflows/ci.yml configures:
+# - SourcePawn compiler setup (rumblefrog/setup-sp, SourceMod 1.12.x)
+# - Dependency checkout (git clone of include-only dependency repos)
+# - Build targets (spcomp invocation per plugin)
+# - Packaging and release on master/main pushes
 ```
 
 ### Building the Plugin
 ```bash
-# CI/CD uses SourceKnight action:
-# maxime1907/action-sourceknight@v1
+# CI/CD compiles directly with spcomp; see .github/workflows/ci.yml for the exact steps.
 
-# Local development would use:
-# sourceknight build
+# Local development:
+# spcomp -i addons/sourcemod/scripting/include -o zr_personal_skins.smx addons/sourcemod/scripting/zr_personal_skins.sp
 ```
 
 ### Testing Strategy
