@@ -60,7 +60,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "3.0.1",
+	version = "3.0.2",
 	url = ""
 };
 
@@ -394,13 +394,11 @@ public void ZR_OnClassAttributesApplied(int &client, int &classIndex)
 	if (!g_hKV)
 		return;
 
-	// If override method is enabled, handle skin application via events instead
-	if (g_cvOverrideMethod.BoolValue)
-		return;
-
 	if (!g_PlayerData[client].hasPersonal || !IsValidClient(client) || !IsPlayerAlive(client))
 		return;
 
+	// Also runs with the override method, so a class change applies right away.
+	// The spawn/infection timers then apply it again over shop skins.
 	ApplyPersonalSkin(client, classIndex);
 }
 
@@ -412,29 +410,11 @@ void ApplyPersonalSkin(int client, int classIndex = -1)
 	bool hasZombie = g_PlayerData[client].modelZombie[0] != '\0';
 	bool hasHuman = g_PlayerData[client].modelHuman[0] != '\0';
 
-	// If override method is enabled, apply skin based on current team
+	// Override method runs from spawn/infection timers: check the class the player
+	// actually has, so picking a non personal class keeps that class model
 	if (g_cvOverrideMethod.BoolValue)
-	{
-		char thisModel[PLATFORM_MAX_PATH];
-		if (ZR_IsClientZombie(client))
-		{
-			if (!g_cvZombies.BoolValue || !hasZombie)
-				return;
-			strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelZombie);
-		}
-		else
-		{
-			if (!g_cvHumans.BoolValue || !hasHuman)
-				return;
-			strcopy(thisModel, sizeof(thisModel), g_PlayerData[client].modelHuman);
-		}
+		classIndex = ZR_GetActiveClass(client);
 
-		if (thisModel[0] != '\0')
-			SetEntityModel(client, thisModel);
-		return;
-	}
-
-	// Original class-based logic
 	if (classIndex == -1)
 		return;
 
