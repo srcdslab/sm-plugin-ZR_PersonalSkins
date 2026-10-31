@@ -1,0 +1,23 @@
+"Phrases"
+{
+	"Skins Reloaded"
+	{
+		"en"		"Successfully reloaded the personal skin list."
+		"fr"		"La liste des skins personnels a bien été rechargée."
+		"ru"		"Список личных скинов успешно перезагружен."
+		"es"		"La lista de skins personales se ha recargado correctamente."
+		"de"		"Die Liste der persönlichen Skins wurde erfolgreich neu geladen."
+		"pt"		"A lista de skins pessoais foi recarregada com sucesso."
+		"chi"		"已成功重新加载个人皮肤列表。"
+	}
+	"No Personal Skin"
+	{
+		"en"		"You don't have a personal skin."
+		"fr"		"Vous n'avez pas de skin personnel."
+		"ru"		"У вас нет личного скина."
+		"es"		"No tienes un skin personal."
+		"de"		"Du hast keinen persönlichen Skin."
+		"pt"		"Você não tem uma skin pessoal."
+		"chi"		"你没有个人皮肤。"
+	}
+}
