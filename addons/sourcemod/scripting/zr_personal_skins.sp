@@ -60,7 +60,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "3.0.2",
+	version = "3.0.3",
 	url = ""
 };
 
@@ -72,6 +72,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	LoadTranslations("zr_personal_skins.phrases");
+
 	// Configuration paths
 	g_cvDownListPath 		= CreateConVar("zr_personalskins_downloadslist", "addons/sourcemod/configs/zr_personalskins_downloadslist.txt", "Config path of the download list", FCVAR_NONE);
 	g_cvFileSettingsPath 	= CreateConVar("zr_personalskins_skinslist", "addons/sourcemod/data/zr_personal_skins.txt", "Config path of the skin settings", FCVAR_NONE);
@@ -278,7 +280,7 @@ public Action Command_Reload(int client, int args)
 
 	ZR_OnClassLoaded();
 
-	CReplyToCommand(client, "{green}[ZR] {default}Successfully reloaded Personal-Skin List.");
+	CReplyToCommand(client, "{green}[ZR] {default}%t", "Skins Reloaded");
 	LogAction(-1, -1, "[ZR-PersonalSkin] %L Reloaded the Personal-Skin List.", client);
 	return Plugin_Handled;
 }
@@ -289,7 +291,7 @@ public Action Command_pSkin(int client, int args)
 		return Plugin_Handled;
 
 	if (!g_PlayerData[client].hasPersonal)
-		CReplyToCommand(client, "{green}[ZR] {default}You don't have personal-skin");
+		CReplyToCommand(client, "{green}[ZR] {default}%t", "No Personal Skin");
 	else
 		ZR_MenuClass(client);
 
