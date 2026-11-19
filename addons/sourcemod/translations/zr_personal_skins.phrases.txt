@@ -9,6 +9,12 @@
 		"de"		"Die Liste der persönlichen Skins wurde erfolgreich neu geladen."
 		"pt"		"A lista de skins pessoais foi recarregada com sucesso."
 		"chi"		"已成功重新加载个人皮肤列表。"
+		"pl"		"Pomyślnie przeładowano listę osobistych skinów."
+		"tr"		"Kişisel skin listesi başarıyla yeniden yüklendi."
+		"it"		"Elenco delle skin personali ricaricato con successo."
+		"ua"		"Список персональних скінів успішно перезавантажено."
+		"zho"		"已成功重新載入個人皮膚列表。"
+		"cze"		"Seznam osobních skinů byl úspěšně znovu načten."
 	}
 	"No Personal Skin"
 	{
@@ -19,5 +25,11 @@
 		"de"		"Du hast keinen persönlichen Skin."
 		"pt"		"Você não tem uma skin pessoal."
 		"chi"		"你没有个人皮肤。"
+		"pl"		"Nie masz osobistego skina."
+		"tr"		"Kişisel bir skin'in yok."
+		"it"		"Non hai una skin personale."
+		"ua"		"У вас немає персонального скіна."
+		"zho"		"你沒有個人皮膚。"
+		"cze"		"Nemáš osobní skin."
 	}
 }
