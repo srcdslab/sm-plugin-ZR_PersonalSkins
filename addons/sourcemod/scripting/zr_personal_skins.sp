@@ -60,7 +60,7 @@ public Plugin myinfo =
 	name = "[ZR] Personal Skins",
 	description = "Gives a personal human or zombie skin",
 	author = "FrozDark, maxime1907, .Rushaway, Dolly, zaCade",
-	version = "3.0.4",
+	version = "3.0.5",
 	url = ""
 };
 
